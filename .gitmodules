@@ -1,0 +1,4 @@
+[submodule "groufix"]
+	path = groufix
+	url = https://github.com/mortie/groufix.git
+	branch = martin/basic-cxx-compat

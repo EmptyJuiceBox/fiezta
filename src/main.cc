@@ -69,7 +69,7 @@ int main() {
 
 	GFXWindow *window = gfx_create_window(
 		GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
-		device, NULL, {.width = 600, .height = 400}, "groufix");
+		device, NULL, {600, 400, 0}, "groufix");
 	dassert(window);
 
 	GFXHeap *heap = gfx_create_heap(device);
@@ -127,31 +127,20 @@ int main() {
 		GFX_REF_NULL, 3, attribs);
 	dassert(primitive);
 
-	GFXBufferRef vert = { \
-		.type = GFX_REF_PRIMITIVE_VERTICES, \
-		.obj = primitive, \
-		.offset = 0, \
-		.values = {0, 0} \
-	};
-
-	GFXBufferRef ind = { \
-		.type = GFX_REF_PRIMITIVE_INDICES,
-		.obj = primitive,
-		.offset = 0,
-		.values = { 0, 0 },
-	};
+	GFXBufferRef vert = gfx_ref_prim_vertices(primitive, 0);
+	GFXBufferRef ind = gfx_ref_prim_indices(primitive);
 
 	dassert(gfx_write(
 		vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(vertexData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXRegion{{{.offset = 0, .size = sizeof(vertexData)}}}),
+		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_VERTEX_READ, GFX_STAGE_ANY),
 		})));
 
 	dassert(gfx_write(indexData, ind, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(indexData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXRegion{{{.offset = 0, .size = sizeof(indexData)}}}),
+		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
 		})));
@@ -181,8 +170,8 @@ int main() {
 		{
 			.type = GFX_BINDING_BUFFER,
 			.count = 1,
-			.elementSize = sizeof(float) * 16,
 			.numElements = 1,
+			.elementSize = sizeof(float) * 16,
 			.buffers = NULL
 		}, {
 			.type = GFX_BINDING_IMAGE,
@@ -200,20 +189,27 @@ int main() {
 	GFXImageRef img = gfx_ref_group_image(group, 1, 0);
 
 	dassert(gfx_write(uboData, ubo, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(uboData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXRegion{{{.offset = 0, .size = sizeof(uboData)}}}),
+		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_UNIFORM_READ, GFX_STAGE_VERTEX)
 		})));
 
+	// TODO: Can't address the image part, address here or in groufix.
+	GFXRegion imgReg;
+	imgReg.aspect = GFX_IMAGE_COLOR;
+	imgReg.mipmap = 0;
+	imgReg.layer = 0;
+	imgReg.numLayers = 1;
+	imgReg.x = 0;
+	imgReg.y = 0;
+	imgReg.z = 0;
+	imgReg.width = 4;
+	imgReg.height = 4;
+	imgReg.depth = 1;
+
 	dassert(gfx_write(imgData, img, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{}),
-		ref(GFXRegion{
-			.aspect = GFX_IMAGE_COLOR,
-			.mipmap = 0, .layer = 0,  .numLayers = 1,
-			.x = 0,      .y = 0,      .z = 0,
-			.width = 4,  .height = 4, .depth = 1
-		}),
+		ref(GFXRegion{}), &imgReg,
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
 		})));
@@ -251,10 +247,7 @@ int main() {
 	while (!gfx_window_should_close(window))
 	{
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
-		gfx_frame_start(frame, 1, (GFXInject[]){
-			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT),
-		});
-
+		gfx_frame_start(frame, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);
 		gfx_heap_purge(heap);

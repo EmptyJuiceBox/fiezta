@@ -139,14 +139,14 @@ int main() {
 
 	dassert(gfx_write(
 		vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{{{.offset = 0, .size = sizeof(vertexData)}}}),
+		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(vertexData)}}),
 		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_VERTEX_READ, GFX_STAGE_ANY),
 		})));
 
 	dassert(gfx_write(indexData, ind, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{{{.offset = 0, .size = sizeof(indexData)}}}),
+		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(indexData)}}),
 		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
@@ -167,21 +167,14 @@ int main() {
 
 	GFXImageRef img = gfx_ref_image(image);
 
-	// TODO: Can't address the image part, address here or in groufix.
-	GFXRegion imgReg;
-	imgReg.aspect = GFX_IMAGE_COLOR;
-	imgReg.mipmap = 0;
-	imgReg.layer = 0;
-	imgReg.numLayers = 1;
-	imgReg.x = 0;
-	imgReg.y = 0;
-	imgReg.z = 0;
-	imgReg.width = 4;
-	imgReg.height = 4;
-	imgReg.depth = 1;
-
 	dassert(gfx_write(imgData, img, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{}), &imgReg,
+		ref(GFXRegion{}),
+		ref(GFXRegion{.img = {
+			.aspect = GFX_IMAGE_COLOR,
+			.mipmap = 0, .layer = 0,  .numLayers = 1,
+			.x = 0,      .y = 0,      .z = 0,
+			.width = 4,  .height = 4, .depth = 1
+		}}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
 		})));

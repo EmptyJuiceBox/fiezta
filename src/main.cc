@@ -18,15 +18,19 @@ static void render_callback(
 		GFXRecorder* recorder, unsigned int /*frame*/, void *ptr) {
 	Context *ctx = (Context *)ptr;
 	// Record stuff.
+	float mvp[] = {
+		1.0f, 0.2f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+	gfx_cmd_push(recorder, ctx->technique, 0, sizeof(mvp), mvp);
 	gfx_cmd_bind(recorder, ctx->technique, 0, 1, 0, &ctx->set, NULL);
 	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 0, 0, 0, 1);
 }
 
 static const char* glsl_vertex =
 	"#version 450\n"
-	"layout(row_major, set = 0, binding = 0) uniform UBO {\n"
-	"  mat4 mvp;\n"
-	"};\n"
 	"layout(location = 0) in vec3 position;\n"
 	"layout(location = 1) in vec3 color;\n"
 	"layout(location = 2) in vec2 texCoord;\n"
@@ -34,6 +38,9 @@ static const char* glsl_vertex =
 	"layout(location = 1) out vec2 fragTexCoord;\n"
 	"out gl_PerVertex {\n"
 	"  vec4 gl_Position;\n"
+	"};\n"
+	"layout(row_major, push_constant) uniform Constants {\n"
+	"  mat4 mvp;\n"
 	"};\n"
 	"void main() {\n"
 	"  gl_Position = mvp * vec4(position, 1.0);\n"
@@ -43,7 +50,7 @@ static const char* glsl_vertex =
 
 static const char* glsl_fragment =
 	"#version 450\n"
-	"layout(set = 0, binding = 1) uniform sampler2D texSampler;\n"
+	"layout(set = 0, binding = 0) uniform sampler2D texSampler;\n"
 	"layout(location = 0) in vec3 fragColor;\n"
 	"layout(location = 1) in vec2 fragTexCoord;\n"
 	"layout(location = 0) out vec4 outColor;\n"
@@ -145,14 +152,6 @@ int main() {
 			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
 		})));
 
-	// Allocate a group with an mvp matrix and a texture.
-	float uboData[] = {
-		1.0f, 0.2f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
-
 	uint8_t imgData[] = {
 		255, 0, 255, 0,
 		0, 255, 0, 255,
@@ -166,34 +165,7 @@ int main() {
 		4, 4, 1);
 	dassert(image);
 
-	GFXBinding bindings[] = {
-		{
-			.type = GFX_BINDING_BUFFER,
-			.count = 1,
-			.numElements = 1,
-			.elementSize = sizeof(float) * 16,
-			.buffers = NULL
-		}, {
-			.type = GFX_BINDING_IMAGE,
-			.count = 1,
-			.images = ref(GFXImageRef{gfx_ref_image(image)}),
-		},
-	};
-	GFXGroup* group = gfx_alloc_group(heap,
-		GFX_MEMORY_WRITE,
-		GFX_BUFFER_UNIFORM,
-		2, bindings);
-	dassert(group);
-
-	GFXBufferRef ubo = gfx_ref_group_buffer(group, 0, 0);
-	GFXImageRef img = gfx_ref_group_image(group, 1, 0);
-
-	dassert(gfx_write(uboData, ubo, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{{{.offset = 0, .size = sizeof(uboData)}}}),
-		ref(GFXRegion{}),
-		ref(GFXInject{
-			gfx_dep_sig(dep, GFX_ACCESS_UNIFORM_READ, GFX_STAGE_VERTEX)
-		})));
+	GFXImageRef img = gfx_ref_image(image);
 
 	// TODO: Can't address the image part, address here or in groufix.
 	GFXRegion imgReg;
@@ -230,16 +202,13 @@ int main() {
 	GFXShader *shaders[] = {vertex, fragment};
 	ctx.technique = gfx_renderer_add_tech(renderer, 2, shaders);
 	dassert(ctx.technique);
-	gfx_tech_immutable(ctx.technique, 0, 1); // Warns on fail.
+	gfx_tech_immutable(ctx.technique, 0, 0); // Warns on fail.
 
 	ctx.set = gfx_renderer_add_set(
 		renderer, ctx.technique, 0,
-		0, 1, 0, 0, NULL,
-		ref(GFXSetGroup{
-			.binding = 0, .offset = 0,
-			.numBindings = 0, .group = group,
-		}),
-		NULL, NULL);
+		1, 0, 0, 0,
+		ref(GFXSetResource{.binding = 0, .index = 0, .ref = img}),
+		NULL, NULL, NULL);
 	dassert(ctx.set);
 
 	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive);

@@ -1,9 +1,12 @@
-extern "C" {
 #include <groufix.h>
-}
 
 #include <iostream>
 #include <stdlib.h>
+
+template<typename T>
+const T *ref(const T &val) {
+	return &val;
+}
 
 struct Context {
 	GFXTechnique *technique;
@@ -64,15 +67,9 @@ int main() {
 
 	GFXDevice *device = NULL;
 
-	GFXVideoMode mode = {
-		.width = 600,
-		.height = 400,
-	};
-	GFXWindowFlags flags = (GFXWindowFlags)
-		(GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER);
 	GFXWindow *window = gfx_create_window(
-		flags, device, NULL,
-		mode, "groufix");
+		GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
+		device, NULL, {.width = 600, .height = 400}, "groufix");
 	dassert(window);
 
 	GFXHeap *heap = gfx_create_heap(device);
@@ -93,7 +90,7 @@ int main() {
 	dassert(pass);
 
 	dassert(gfx_pass_consume(
-		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, (GFXShaderStage)0));
+		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
 
 	uint16_t indexData[] = {
 		0, 1, 3, 2
@@ -111,36 +108,34 @@ int main() {
 			.format = GFX_FORMAT_R32G32B32_SFLOAT,
 			.offset = 0,
 			.stride = sizeof(float) * 8,
-			.buffer = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
+			.buffer = GFX_REF_NULL,
 		}, {
 			.format = GFX_FORMAT_R32G32B32_SFLOAT,
 			.offset = sizeof(float) * 3,
 			.stride = sizeof(float) * 8,
-			.buffer = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
+			.buffer = GFX_REF_NULL,
 		}, {
 			.format = GFX_FORMAT_R32G32_SFLOAT,
 			.offset = sizeof(float) * 6,
 			.stride = sizeof(float) * 8,
-			.buffer = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
+			.buffer = GFX_REF_NULL,
 		},
 	};
-
 	GFXPrimitive *primitive = gfx_alloc_prim(heap,
-		GFX_MEMORY_WRITE, (GFXBufferUsage)0,
+		GFX_MEMORY_WRITE, GFX_BUFFER_NONE,
 		GFX_TOPO_TRIANGLE_STRIP, 4, sizeof(uint16_t), 4,
-		{GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
-		3, attribs);
+		GFX_REF_NULL, 3, attribs);
 	dassert(primitive);
 
 	GFXBufferRef vert = { \
-		.type = GFXReference::GFX_REF_PRIMITIVE_VERTICES, \
+		.type = GFX_REF_PRIMITIVE_VERTICES, \
 		.obj = primitive, \
 		.offset = 0, \
 		.values = {0, 0} \
 	};
 
 	GFXBufferRef ind = { \
-		.type = GFXReference::GFX_REF_PRIMITIVE_INDICES,
+		.type = GFX_REF_PRIMITIVE_INDICES,
 		.obj = primitive,
 		.offset = 0,
 		.values = { 0, 0 },
@@ -148,31 +143,33 @@ int main() {
 
 	dassert(gfx_write(
 		vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
-		(GFXRegion[]){{ .offset = 0, .size = sizeof(vertexData) }},
-		(GFXRegion[]){{ .offset = 0, .size = 0 }},
-		(GFXInject[]){
-			(GFXInject){
-				.type = GFXInject::GFX_DEP_SIGNAL,
-				.dep = dep,
-				.ref = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
-				.mask = GFX_ACCESS_VERTEX_READ,
-				.stage = (GFXShaderStage)0,
-			}
-		}));
-
+		ref(GFXRegion{.offset = 0, .size = sizeof(vertexData)}),
+		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXInject{
+			gfx_dep_sig(dep, GFX_ACCESS_VERTEX_READ, GFX_STAGE_ANY),
+		})));
 
 	dassert(gfx_write(indexData, ind, GFX_TRANSFER_ASYNC, 1, 1,
-		(GFXRegion[]){{ .offset = 0, .size = sizeof(indexData) }},
-		(GFXRegion[]){{ .offset = 0, .size = 0 }},
-		(GFXInject[]){
-			(GFXInject){
-				.type = GFXInject::GFX_DEP_SIGNAL,
-				.dep = dep,
-				.ref = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
-				.mask = GFX_ACCESS_INDEX_READ,
-				.stage = (GFXShaderStage)0,
-			}
-		}));
+		ref(GFXRegion{.offset = 0, .size = sizeof(indexData)}),
+		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXInject{
+			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
+		})));
+
+	// Allocate a group with an mvp matrix and a texture.
+	float uboData[] = {
+		1.0f, 0.2f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+
+	uint8_t imgData[] = {
+		255, 0, 255, 0,
+		0, 255, 0, 255,
+		255, 0, 255, 0,
+		0, 255, 0, 255
+	};
 
 	GFXImage* image = gfx_alloc_image(heap,
 		GFX_MEMORY_WRITE, GFX_IMAGE_2D,
@@ -180,30 +177,46 @@ int main() {
 		4, 4, 1);
 	dassert(image);
 
+	GFXBinding bindings[] = {
+		{
+			.type = GFX_BINDING_BUFFER,
+			.count = 1,
+			.elementSize = sizeof(float) * 16,
+			.numElements = 1,
+			.buffers = NULL
+		}, {
+			.type = GFX_BINDING_IMAGE,
+			.count = 1,
+			.images = ref(GFXImageRef{gfx_ref_image(image)}),
+		},
+	};
 	GFXGroup* group = gfx_alloc_group(heap,
 		GFX_MEMORY_WRITE,
 		GFX_BUFFER_UNIFORM,
-		2, (GFXBinding[]){
-			{
-				.type = GFX_BINDING_BUFFER,
-				.count = 1,
-				.elementSize = sizeof(float) * 16,
-				.numElements = 1,
-				.buffers = NULL
-			}, {
-				.type = GFX_BINDING_IMAGE,
-				.count = 1,
-				.images = (GFXImageRef[]){
-					(GFXImageRef){
-						.type = GFXReference::GFX_REF_IMAGE,
-						.obj = image,
-						.offset = 0,
-						.values = { 0, 0 }
-					},
-				},
-			}
-		});
+		2, bindings);
 	dassert(group);
+
+	GFXBufferRef ubo = gfx_ref_group_buffer(group, 0, 0);
+	GFXImageRef img = gfx_ref_group_image(group, 1, 0);
+
+	dassert(gfx_write(uboData, ubo, GFX_TRANSFER_ASYNC, 1, 1,
+		ref(GFXRegion{.offset = 0, .size = sizeof(uboData)}),
+		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXInject{
+			gfx_dep_sig(dep, GFX_ACCESS_UNIFORM_READ, GFX_STAGE_VERTEX)
+		})));
+
+	dassert(gfx_write(imgData, img, GFX_TRANSFER_ASYNC, 1, 1,
+		ref(GFXRegion{}),
+		ref(GFXRegion{
+			.aspect = GFX_IMAGE_COLOR,
+			.mipmap = 0, .layer = 0,  .numLayers = 1,
+			.x = 0,      .y = 0,      .z = 0,
+			.width = 4,  .height = 4, .depth = 1
+		}),
+		ref(GFXInject{
+			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
+		})));
 
 	GFXShader *vertex = gfx_create_shader(GFX_STAGE_VERTEX, device);
 	dassert(vertex);
@@ -225,16 +238,12 @@ int main() {
 
 	ctx.set = gfx_renderer_add_set(
 		renderer, ctx.technique, 0,
-		0, 1, 0, 0,
-		NULL,
-		(GFXSetGroup[]){{
-			.binding = 0,
-			.offset = 0,
-			.numBindings = 0,
-			.group = group,
-		}},
-		NULL,
-		NULL);
+		0, 1, 0, 0, NULL,
+		ref(GFXSetGroup{
+			.binding = 0, .offset = 0,
+			.numBindings = 0, .group = group,
+		}),
+		NULL, NULL);
 	dassert(ctx.set);
 
 	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive);
@@ -243,11 +252,8 @@ int main() {
 	{
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
 		gfx_frame_start(frame, 1, (GFXInject[]){
-			(GFXInject){
-				.type = GFXInject::GFX_DEP_WAIT,
-				.dep = dep,
-				.ref = {GFXReference::GFX_REF_EMPTY, NULL, 0, {0, 0}},
-			}});
+			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT),
+		});
 
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);

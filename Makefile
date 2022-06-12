@@ -4,7 +4,7 @@ SRCS = \
 	$(wildcard src/*.cc)
 
 CXXFLAGS += \
-	-std=c++20 -Wall -Wextra \
+	-std=c++20 -Wall -Wextra -Wpedantic \
 	-isystem groufix/include -Isrc
 
 LDFLAGS += -L$(OUT)

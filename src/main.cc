@@ -18,15 +18,19 @@ static void render_callback(
 		GFXRecorder* recorder, unsigned int /*frame*/, void *ptr) {
 	Context *ctx = (Context *)ptr;
 	// Record stuff.
+	float mvp[] = {
+		1.0f, 0.2f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+	gfx_cmd_push(recorder, ctx->technique, 0, sizeof(mvp), mvp);
 	gfx_cmd_bind(recorder, ctx->technique, 0, 1, 0, &ctx->set, NULL);
 	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 0, 0, 0, 1);
 }
 
 static const char* glsl_vertex =
 	"#version 450\n"
-	"layout(row_major, set = 0, binding = 0) uniform UBO {\n"
-	"  mat4 mvp;\n"
-	"};\n"
 	"layout(location = 0) in vec3 position;\n"
 	"layout(location = 1) in vec3 color;\n"
 	"layout(location = 2) in vec2 texCoord;\n"
@@ -34,6 +38,9 @@ static const char* glsl_vertex =
 	"layout(location = 1) out vec2 fragTexCoord;\n"
 	"out gl_PerVertex {\n"
 	"  vec4 gl_Position;\n"
+	"};\n"
+	"layout(row_major, push_constant) uniform Constants {\n"
+	"  mat4 mvp;\n"
 	"};\n"
 	"void main() {\n"
 	"  gl_Position = mvp * vec4(position, 1.0);\n"
@@ -43,7 +50,7 @@ static const char* glsl_vertex =
 
 static const char* glsl_fragment =
 	"#version 450\n"
-	"layout(set = 0, binding = 1) uniform sampler2D texSampler;\n"
+	"layout(set = 0, binding = 0) uniform sampler2D texSampler;\n"
 	"layout(location = 0) in vec3 fragColor;\n"
 	"layout(location = 1) in vec2 fragTexCoord;\n"
 	"layout(location = 0) out vec4 outColor;\n"
@@ -69,7 +76,7 @@ int main() {
 
 	GFXWindow *window = gfx_create_window(
 		GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
-		device, NULL, {.width = 600, .height = 400}, "groufix");
+		device, NULL, {600, 400, 0}, "groufix");
 	dassert(window);
 
 	GFXHeap *heap = gfx_create_heap(device);
@@ -91,6 +98,8 @@ int main() {
 
 	dassert(gfx_pass_consume(
 		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
+	gfx_pass_clear(
+		pass, 0, GFX_IMAGE_COLOR, GFXClear{{0.0f, 0.0f, 0.0f, 0.0f}});
 
 	uint16_t indexData[] = {
 		0, 1, 3, 2
@@ -127,42 +136,23 @@ int main() {
 		GFX_REF_NULL, 3, attribs);
 	dassert(primitive);
 
-	GFXBufferRef vert = { \
-		.type = GFX_REF_PRIMITIVE_VERTICES, \
-		.obj = primitive, \
-		.offset = 0, \
-		.values = {0, 0} \
-	};
-
-	GFXBufferRef ind = { \
-		.type = GFX_REF_PRIMITIVE_INDICES,
-		.obj = primitive,
-		.offset = 0,
-		.values = { 0, 0 },
-	};
+	GFXBufferRef vert = gfx_ref_prim_vertices(primitive, 0);
+	GFXBufferRef ind = gfx_ref_prim_indices(primitive);
 
 	dassert(gfx_write(
 		vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(vertexData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(vertexData)}}),
+		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_VERTEX_READ, GFX_STAGE_ANY),
 		})));
 
 	dassert(gfx_write(indexData, ind, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(indexData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
+		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(indexData)}}),
+		ref(GFXRegion{}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
 		})));
-
-	// Allocate a group with an mvp matrix and a texture.
-	float uboData[] = {
-		1.0f, 0.2f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
 
 	uint8_t imgData[] = {
 		255, 0, 255, 0,
@@ -172,48 +162,21 @@ int main() {
 	};
 
 	GFXImage* image = gfx_alloc_image(heap,
-		GFX_MEMORY_WRITE, GFX_IMAGE_2D,
+		GFX_IMAGE_2D, GFX_MEMORY_WRITE,
 		GFX_IMAGE_SAMPLED, GFX_FORMAT_R8_UNORM, 1, 1,
 		4, 4, 1);
 	dassert(image);
 
-	GFXBinding bindings[] = {
-		{
-			.type = GFX_BINDING_BUFFER,
-			.count = 1,
-			.elementSize = sizeof(float) * 16,
-			.numElements = 1,
-			.buffers = NULL
-		}, {
-			.type = GFX_BINDING_IMAGE,
-			.count = 1,
-			.images = ref(GFXImageRef{gfx_ref_image(image)}),
-		},
-	};
-	GFXGroup* group = gfx_alloc_group(heap,
-		GFX_MEMORY_WRITE,
-		GFX_BUFFER_UNIFORM,
-		2, bindings);
-	dassert(group);
-
-	GFXBufferRef ubo = gfx_ref_group_buffer(group, 0, 0);
-	GFXImageRef img = gfx_ref_group_image(group, 1, 0);
-
-	dassert(gfx_write(uboData, ubo, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.offset = 0, .size = sizeof(uboData)}),
-		ref(GFXRegion{.offset = 0, .size = 0}),
-		ref(GFXInject{
-			gfx_dep_sig(dep, GFX_ACCESS_UNIFORM_READ, GFX_STAGE_VERTEX)
-		})));
+	GFXImageRef img = gfx_ref_image(image);
 
 	dassert(gfx_write(imgData, img, GFX_TRANSFER_ASYNC, 1, 1,
 		ref(GFXRegion{}),
-		ref(GFXRegion{
+		ref(GFXRegion{.img = {
 			.aspect = GFX_IMAGE_COLOR,
 			.mipmap = 0, .layer = 0,  .numLayers = 1,
 			.x = 0,      .y = 0,      .z = 0,
 			.width = 4,  .height = 4, .depth = 1
-		}),
+		}}),
 		ref(GFXInject{
 			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
 		})));
@@ -226,24 +189,21 @@ int main() {
 	GFXStringReader str;
 	dassert(gfx_shader_compile(
 		vertex, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_vertex), NULL, NULL));
+		gfx_string_reader(&str, glsl_vertex), NULL, NULL, NULL));
 	dassert(gfx_shader_compile(
 		fragment, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_fragment), NULL, NULL));
+		gfx_string_reader(&str, glsl_fragment), NULL, NULL, NULL));
 
 	GFXShader *shaders[] = {vertex, fragment};
 	ctx.technique = gfx_renderer_add_tech(renderer, 2, shaders);
 	dassert(ctx.technique);
-	gfx_tech_immutable(ctx.technique, 0, 1); // Warns on fail.
+	gfx_tech_immutable(ctx.technique, 0, 0); // Warns on fail.
 
 	ctx.set = gfx_renderer_add_set(
 		renderer, ctx.technique, 0,
-		0, 1, 0, 0, NULL,
-		ref(GFXSetGroup{
-			.binding = 0, .offset = 0,
-			.numBindings = 0, .group = group,
-		}),
-		NULL, NULL);
+		1, 0, 0, 0,
+		ref(GFXSetResource{.binding = 0, .index = 0, .ref = img}),
+		NULL, NULL, NULL);
 	dassert(ctx.set);
 
 	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive);
@@ -251,10 +211,7 @@ int main() {
 	while (!gfx_window_should_close(window))
 	{
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
-		gfx_frame_start(frame, 1, (GFXInject[]){
-			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT),
-		});
-
+		gfx_frame_start(frame, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);
 		gfx_heap_purge(heap);

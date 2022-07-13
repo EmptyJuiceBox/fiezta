@@ -4,10 +4,10 @@ SRCS = \
 	$(wildcard src/*.cc)
 
 CXXFLAGS += \
-	-std=c++20 -Wall -Wextra -Wpedantic \
+	-std=c++2a -Wall -Wextra -Wno-missing-field-initializers -Wpedantic \
 	-isystem groufix/include -Isrc
 
-LDFLAGS += -L$(OUT)
+LDFLAGS += -L$(OUT) -Wl,-rpath,'$$ORIGIN'
 LDLIBS += -lgroufix
 
 OBJS = $(patsubst %,$(OUT)/%.o,$(SRCS))
@@ -17,16 +17,16 @@ $(OUT)/fiezta: $(OUT)/libgroufix.so $(OBJS)
 	@mkdir -p $(@D)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-groufix/.shaderc-deps.stamp:
+.groufix-shaderc-deps.stamp:
 	cd groufix/deps/shaderc && ./utils/git-sync-deps
 	touch $@
 
-$(OUT)/libgroufix.so: groufix/.shaderc-deps.stamp
+$(OUT)/libgroufix.so: .groufix-shaderc-deps.stamp
 	@mkdir -p $(@D)
 	$(MAKE) -C groufix unix
 	cp groufix/bin/unix/libgroufix.so $@
 	@# TODO: Make this cross-platform
-	install_name_tool -id '@executable_path/libgroufix.so' $@
+	#install_name_tool -id '@executable_path/libgroufix.so' $@
 
 $(OUT)/%.cc.o: %.cc
 	@mkdir -p $(@D)

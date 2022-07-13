@@ -98,6 +98,8 @@ int main() {
 
 	dassert(gfx_pass_consume(
 		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
+	gfx_pass_clear(
+		pass, 0, GFX_IMAGE_COLOR, GFXClear{{0.0f, 0.0f, 0.0f, 0.0f}});
 
 	uint16_t indexData[] = {
 		0, 1, 3, 2
@@ -160,7 +162,7 @@ int main() {
 	};
 
 	GFXImage* image = gfx_alloc_image(heap,
-		GFX_MEMORY_WRITE, GFX_IMAGE_2D,
+		GFX_IMAGE_2D, GFX_MEMORY_WRITE,
 		GFX_IMAGE_SAMPLED, GFX_FORMAT_R8_UNORM, 1, 1,
 		4, 4, 1);
 	dassert(image);
@@ -187,10 +189,10 @@ int main() {
 	GFXStringReader str;
 	dassert(gfx_shader_compile(
 		vertex, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_vertex), NULL, NULL));
+		gfx_string_reader(&str, glsl_vertex), NULL, NULL, NULL));
 	dassert(gfx_shader_compile(
 		fragment, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_fragment), NULL, NULL));
+		gfx_string_reader(&str, glsl_fragment), NULL, NULL, NULL));
 
 	GFXShader *shaders[] = {vertex, fragment};
 	ctx.technique = gfx_renderer_add_tech(renderer, 2, shaders);

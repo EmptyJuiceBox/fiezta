@@ -139,8 +139,7 @@ int main() {
 	GFXBufferRef vert = gfx_ref_prim_vertices(primitive, 0);
 	GFXBufferRef ind = gfx_ref_prim_indices(primitive);
 
-	dassert(gfx_write(
-		vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
+	dassert(gfx_write(vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
 		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(vertexData)}}),
 		ref(GFXRegion{}),
 		ref(GFXInject{
@@ -181,6 +180,8 @@ int main() {
 			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
 		})));
 
+	dassert(gfx_heap_flush(heap));
+
 	GFXShader *vertex = gfx_create_shader(GFX_STAGE_VERTEX, device);
 	dassert(vertex);
 	GFXShader *fragment = gfx_create_shader(GFX_STAGE_FRAGMENT, device);
@@ -206,15 +207,24 @@ int main() {
 		NULL, NULL, NULL);
 	dassert(ctx.set);
 
-	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive);
+	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive, NULL);
 
 	while (!gfx_window_should_close(window))
 	{
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
+		gfx_poll_events();
 		gfx_frame_start(frame, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);
 		gfx_heap_purge(heap);
-		gfx_wait_events();
 	}
+
+	gfx_destroy_renderer(renderer);
+	gfx_destroy_shader(vertex);
+	gfx_destroy_shader(fragment);
+	gfx_destroy_heap(heap);
+	gfx_destroy_dep(dep);
+	gfx_destroy_window(window);
+
+	gfx_terminate();
 }

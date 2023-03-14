@@ -1,12 +1,6 @@
-#include <groufix.h>
-
+#include "def.h"
 #include <iostream>
 #include <stdlib.h>
-
-template<typename T>
-const T *ref(const T &val) {
-	return &val;
-}
 
 struct Context {
 	GFXTechnique *technique;
@@ -29,43 +23,28 @@ static void render_callback(
 	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 1, 0, 0, 0);
 }
 
-static const char* glsl_vertex =
-	"#version 450\n"
-	"layout(location = 0) in vec3 position;\n"
-	"layout(location = 1) in vec3 color;\n"
-	"layout(location = 2) in vec2 texCoord;\n"
-	"layout(location = 0) out vec3 fragColor;\n"
-	"layout(location = 1) out vec2 fragTexCoord;\n"
-	"out gl_PerVertex {\n"
-	"  vec4 gl_Position;\n"
-	"};\n"
-	"layout(row_major, push_constant) uniform Constants {\n"
-	"  mat4 mvp;\n"
-	"};\n"
-	"void main() {\n"
-	"  gl_Position = mvp * vec4(position, 1.0);\n"
-	"  fragColor = color;\n"
-	"  fragTexCoord = texCoord;\n"
-	"}\n";
+static GFXShader *load_shader(
+		GFXDevice *device, GFXShaderStage stage, const char *path) {
+	// Open file & includer.
+	GFXFile file;
+	dassert(gfx_file_init(&file, path, "r"));
 
-static const char* glsl_fragment =
-	"#version 450\n"
-	"layout(set = 0, binding = 0) uniform sampler2D texSampler;\n"
-	"layout(location = 0) in vec3 fragColor;\n"
-	"layout(location = 1) in vec2 fragTexCoord;\n"
-	"layout(location = 0) out vec4 outColor;\n"
-	"void main() {\n"
-	"  float tex = texture(texSampler, fragTexCoord).r;\n"
-	"  outColor = vec4(fragColor, 1.0) * tex;\n"
-	"}\n";
+	GFXFileIncluder inc;
+	dassert(gfx_file_includer_init(&inc, path));
 
-#define dassert(expr) do { \
-	if (!(expr)) { \
-		std::cerr << "Asertion failed: " #expr << '\n'; \
-		std::cerr << "  At " << __FILE__ << ":" << __LINE__ << "(" << __func__ << ")\n"; \
-		abort(); \
-	} \
-} while (0)
+	// Create & compile shader.
+	GFXShader *shader = gfx_create_shader(stage, device);
+	dassert(shader);
+
+	dassert(gfx_shader_compile(shader,
+		GFX_GLSL, 1,
+		&file.reader, &inc.includer, NULL, NULL));
+
+	gfx_file_includer_clear(&inc);
+	gfx_file_clear(&file);
+
+	return shader;
+}
 
 int main() {
 	Context ctx;
@@ -182,18 +161,13 @@ int main() {
 
 	dassert(gfx_heap_flush(heap));
 
-	GFXShader *vertex = gfx_create_shader(GFX_STAGE_VERTEX, device);
-	dassert(vertex);
-	GFXShader *fragment = gfx_create_shader(GFX_STAGE_FRAGMENT, device);
+	GFXShader *vertex = load_shader(
+		device, GFX_STAGE_VERTEX, "assets/basic.vert");
 	dassert(vertex);
 
-	GFXStringReader str;
-	dassert(gfx_shader_compile(
-		vertex, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_vertex), NULL, NULL, NULL));
-	dassert(gfx_shader_compile(
-		fragment, GFX_GLSL, 1,
-		gfx_string_reader(&str, glsl_fragment), NULL, NULL, NULL));
+	GFXShader *fragment = load_shader(
+		device, GFX_STAGE_FRAGMENT, "assets/basic.frag");
+	dassert(fragment);
 
 	GFXShader *shaders[] = {vertex, fragment};
 	ctx.technique = gfx_renderer_add_tech(renderer, 2, shaders);

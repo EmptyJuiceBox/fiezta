@@ -26,7 +26,7 @@ static void render_callback(
 	};
 	gfx_cmd_push(recorder, ctx->technique, 0, sizeof(mvp), mvp);
 	gfx_cmd_bind(recorder, ctx->technique, 0, 1, 0, &ctx->set, NULL);
-	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 0, 0, 0, 1);
+	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 1, 0, 0, 0);
 }
 
 static const char* glsl_vertex =
@@ -85,7 +85,7 @@ int main() {
 	GFXDependency *dep = gfx_create_dep(device, 2);
 	dassert(dep);
 
-	GFXRenderer *renderer = gfx_create_renderer(device, 2);
+	GFXRenderer *renderer = gfx_create_renderer(heap, 2);
 	dassert(renderer);
 
 	dassert(gfx_renderer_attach_window(renderer, 0, window));
@@ -93,7 +93,7 @@ int main() {
 	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
 	dassert(recorder);
 
-	GFXPass *pass = gfx_renderer_add_pass(renderer, 0, NULL);
+	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, NULL);
 	dassert(pass);
 
 	dassert(gfx_pass_consume(
@@ -213,7 +213,8 @@ int main() {
 	{
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
 		gfx_poll_events();
-		gfx_frame_start(frame, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
+		gfx_frame_start(frame);
+		gfx_pass_inject(pass, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);
 		gfx_heap_purge(heap);

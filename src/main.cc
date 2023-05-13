@@ -1,15 +1,16 @@
-#include "def.h"
 #include <iostream>
-#include <stdlib.h>
 
-struct Context {
+#include "def.h"
+#include "graph.h"
+
+/*struct Context {
 	GFXTechnique *technique;
 	GFXSet *set;
 	GFXRenderable renderable;
 };
 
 static void render_callback(
-		GFXRecorder* recorder, unsigned int /*frame*/, void *ptr) {
+		GFXRecorder* recorder, unsigned int frame, void *ptr) {
 	Context *ctx = (Context *)ptr;
 	// Record stuff.
 	float mvp[] = {
@@ -44,12 +45,14 @@ static GFXShader *load_shader(
 	gfx_file_clear(&file);
 
 	return shader;
-}
+}*/
 
 int main() {
-	Context ctx;
+	auto node = std::make_unique<GraphNode>();
+	node->addChild(std::make_unique<GraphNode>());
 
-	dassert(gfx_init());
+
+	/*dassert(gfx_init());
 
 	GFXDevice *device = NULL;
 
@@ -200,5 +203,5 @@ int main() {
 	gfx_destroy_dep(dep);
 	gfx_destroy_window(window);
 
-	gfx_terminate();
+	gfx_terminate();*/
 }

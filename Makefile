@@ -17,11 +17,7 @@ $(OUT)/fiezta: $(OUT)/libgroufix.so $(OBJS)
 	@mkdir -p $(@D)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-.groufix-shaderc-deps.stamp:
-	cd groufix/deps/shaderc && ./utils/git-sync-deps
-	touch $@
-
-$(OUT)/libgroufix.so: .groufix-shaderc-deps.stamp
+$(OUT)/libgroufix.so:
 	@mkdir -p $(@D)
 	$(MAKE) -C groufix unix
 	cp groufix/bin/unix/libgroufix.so $@
@@ -43,7 +39,6 @@ clean-groufix:
 	rm -f $(OUT)/libgroufix.so
 
 .PHONY: clean-all
-clean-all: clean
-	$(MAKE) -C groufix clean-all
+clean-all: clean clean-groufix
 
 -include $(DEPS)

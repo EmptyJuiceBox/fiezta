@@ -27,10 +27,10 @@ static GFXShader *load_shader(
 		GFXDevice *device, GFXShaderStage stage, const char *path) {
 	// Open file & includer.
 	GFXFile file;
-	dassert(gfx_file_init(&file, path, "r"));
+	dassert(gfx_file_init(&file, path, "rb"));
 
 	GFXFileIncluder inc;
-	dassert(gfx_file_includer_init(&inc, path));
+	dassert(gfx_file_includer_init(&inc, path, "rb"));
 
 	// Create & compile shader.
 	GFXShader *shader = gfx_create_shader(stage, device);
@@ -191,7 +191,6 @@ int main() {
 		gfx_pass_inject(pass, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
 		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
 		gfx_frame_submit(frame);
-		gfx_heap_purge(heap);
 	}
 
 	gfx_destroy_renderer(renderer);

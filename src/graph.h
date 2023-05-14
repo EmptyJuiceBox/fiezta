@@ -1,32 +1,26 @@
 #pragma once
 
-#include <string.h>
 #include <memory>
 #include <vector>
+#include "matrix.h"
 
 class GraphNode {
 public:
-	GraphNode() : GraphNode(nullptr) {};
+	matrix<float> transform;
 
-	GraphNode(const float *transform) {
-		const float identity[] = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		};
-		memcpy(
-			this->transform,
-			transform ? transform : identity,
-			sizeof(this->transform));
-	}
+	GraphNode() {}
 
-	void addChild(std::unique_ptr<GraphNode> node);
+	GraphNode(const matrix<float> &mat) : transform(mat) {}
+
+	GraphNode(const float *mat) : transform(mat) {}
+
+	GraphNode *addChild(std::unique_ptr<GraphNode> node);
 	GraphNode *getChild(size_t i);
 	void eraseChild(size_t i);
 	std::unique_ptr<GraphNode> claimChild(size_t i);
 
+	size_t numChildren(void) { return children.size(); }
+
 private:
-	float transform[16];
 	std::vector<std::unique_ptr<GraphNode>> children;
 };

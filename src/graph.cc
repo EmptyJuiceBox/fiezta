@@ -1,7 +1,8 @@
 #include "graph.h"
 
-void GraphNode::addChild(std::unique_ptr<GraphNode> node) {
+GraphNode *GraphNode::addChild(std::unique_ptr<GraphNode> node) {
 	children.push_back(std::move(node));
+	return children.back().get();
 }
 
 GraphNode *GraphNode::getChild(size_t i) {

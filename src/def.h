@@ -1,6 +1,7 @@
 #pragma once
 
 #include <groufix.h>
+#include <iostream>
 
 #define dassert(expr) do { \
 	if (!(expr)) { \

@@ -2,15 +2,15 @@
 
 #include <memory>
 #include <vector>
-#include "matrix.h"
+#include "mat.h"
 
 class GraphNode {
 public:
-	matrix<float> transform;
+	mat4<float> transform;
 
 	GraphNode() {}
 
-	GraphNode(const matrix<float> &mat) : transform(mat) {}
+	GraphNode(const mat4<float> &mat) : transform(mat) {}
 
 	GraphNode(const float *mat) : transform(mat) {}
 

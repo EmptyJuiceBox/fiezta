@@ -2,6 +2,7 @@
 
 #include "def.h"
 #include "graph.h"
+#include "vec.h"
 
 /*struct Context {
 	GFXTechnique *technique;
@@ -50,6 +51,11 @@ static GFXShader *load_shader(
 int main() {
 	auto node = std::make_unique<GraphNode>();
 	node->addChild(std::make_unique<GraphNode>());
+
+	auto vec1 = vec3(0.0f, 1.1f, 2.0f);
+	auto vec2 = vec3(1.8f, 2.0f, 9.0f);
+	vec2 += vec1;
+	std::cout << (5 * vec2)[0] << '\n';
 
 
 	/*dassert(gfx_init());

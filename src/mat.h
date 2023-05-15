@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string.h>
-#include <iostream>
 
 template <typename T>
 struct mat4 {

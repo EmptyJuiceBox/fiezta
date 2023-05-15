@@ -11,9 +11,8 @@ GraphNode *GraphNode::getChild(size_t i) {
 
 void GraphNode::eraseChild(size_t i) {
 	if (i < children.size()) {
-		if (i < children.size() - 1) {
+		if (i < children.size() - 1)
 			children[i] = std::move(children.back());
-		}
 
 		children.pop_back();
 	}
@@ -27,4 +26,20 @@ std::unique_ptr<GraphNode> GraphNode::claimChild(size_t i) {
 	}
 
 	return {};
+}
+
+void MeshNode::addPrimitive(MeshNode::Primitive prim) {
+	primitives.push_back(prim);
+}
+
+MeshNode::Primitive MeshNode::getPrimitive(size_t i) {
+	if (i < primitives.size())
+		return primitives[i];
+
+	return { nullptr, nullptr };
+}
+
+void MeshNode::erasePrimitive(size_t i) {
+	if (i < primitives.size())
+		primitives.erase(primitives.begin() + i);
 }

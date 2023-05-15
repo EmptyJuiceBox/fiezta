@@ -55,17 +55,6 @@ struct vec3 {
 		return *this;
 	}
 
-	vec3 operator*(const vec3 &vec) const {
-		return vec3(data[0] * vec[0], data[1] * vec[1], data[2] * vec[2]);
-	}
-
-	vec3 &operator*=(const vec3 &vec) {
-		data[0] *= vec[0];
-		data[1] *= vec[1];
-		data[2] *= vec[2];
-		return *this;
-	}
-
 	vec3 operator*(T scalar) const {
 		return vec3(data[0] * scalar, data[1] * scalar, data[2] * scalar);
 	}
@@ -78,6 +67,17 @@ struct vec3 {
 		data[0] *= scalar;
 		data[1] *= scalar;
 		data[2] *= scalar;
+		return *this;
+	}
+
+	vec3 operator*(const vec3 &vec) const {
+		return vec3(data[0] * vec[0], data[1] * vec[1], data[2] * vec[2]);
+	}
+
+	vec3 &operator*=(const vec3 &vec) {
+		data[0] *= vec[0];
+		data[1] *= vec[1];
+		data[2] *= vec[2];
 		return *this;
 	}
 

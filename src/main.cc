@@ -54,8 +54,10 @@ int main() {
 
 	auto vec1 = vec3(0.0f, 1.1f, 2.0f);
 	auto vec2 = vec3(1.8f, 2.0f, 9.0f);
+	auto mat = (mat4<float>() * 8.0f).inverse();
 	vec2 += vec1;
 	std::cout << (5 * vec2)[0] << '\n';
+	std::cout << mat[0][0] << '\n';
 
 
 	/*dassert(gfx_init());

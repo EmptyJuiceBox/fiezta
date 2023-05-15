@@ -27,7 +27,7 @@ private:
 };
 
 
-class MeshNode : GraphNode {
+class MeshNode : public GraphNode {
 public:
 	struct Primitive {
 		GFXTechnique* tech;

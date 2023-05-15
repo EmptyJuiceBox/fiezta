@@ -50,7 +50,8 @@ static GFXShader *load_shader(
 
 int main() {
 	auto node = std::make_unique<GraphNode>();
-	node->addChild(std::make_unique<GraphNode>());
+	auto mesh = (MeshNode*)node->addChild(std::make_unique<MeshNode>());
+	mesh->addPrimitive({ nullptr, nullptr });
 
 	auto vec1 = vec3(0.0f, 1.1f, 2.0f);
 	auto vec2 = vec3(1.8f, 2.0f, 9.0f);

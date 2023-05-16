@@ -28,6 +28,23 @@ std::unique_ptr<GraphNode> GraphNode::claimChild(size_t i) {
 	return {};
 }
 
+void GraphNode::update(GraphNode *parent) {
+	finalTransform =
+		parent ? parent->finalTransform * transform : transform;
+
+	for (auto &child : children)
+		child->update(this);
+}
+
+void GraphNode::record(
+		GFXRecorder *recorder, GFXPass *pass,
+		unsigned int frame, void *ptr) {
+	_record(recorder, pass, frame, ptr);
+
+	for (auto &child : children)
+		child->record(recorder, pass, frame, ptr);
+}
+
 void MeshNode::addPrimitive(MeshNode::Primitive prim) {
 	primitives.push_back(prim);
 }

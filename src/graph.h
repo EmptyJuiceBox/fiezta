@@ -22,6 +22,19 @@ public:
 
 	size_t numChildren() { return children.size(); }
 
+	// Update the entire sub-graph.
+	void update(GraphNode *parent = nullptr);
+
+	// Record the entire sub-graph.
+	void record(GFXRecorder*, GFXPass*, unsigned int frame, void *ptr);
+
+protected:
+	// args{Recorder, pass, frame-index, user-pointer}
+	virtual void _record(GFXRecorder*, GFXPass*, unsigned int, void*) {};
+
+	// Set during update().
+	mat4<float> finalTransform;
+
 private:
 	std::vector<std::unique_ptr<GraphNode>> children;
 };
@@ -30,15 +43,15 @@ private:
 class MeshNode : public GraphNode {
 public:
 	struct Primitive {
-		GFXTechnique* tech;
-		GFXPrimitive* prim;
+		GFXTechnique *tech;
+		GFXPrimitive *prim;
 	};
 
 	MeshNode() {}
 
 	MeshNode(const mat4<float> &mat) : GraphNode(mat) {}
 
-	MeshNode(const float* mat) : GraphNode(mat) {}
+	MeshNode(const float *mat) : GraphNode(mat) {}
 
 	void addPrimitive(Primitive prim);
 	Primitive getPrimitive(size_t i);

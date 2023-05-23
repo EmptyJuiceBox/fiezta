@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 #include <vector>
 #include "def.h"
 #include "mat.h"
@@ -47,6 +48,10 @@ public:
 		GFXPrimitive *prim;
 	};
 
+	struct Renderable {
+		GFXRenderable forward;
+	};
+
 	MeshNode() {}
 
 	MeshNode(const mat4<float> &mat) : GraphNode(mat) {}
@@ -59,6 +64,8 @@ public:
 
 	size_t numPrimitives() { return primitives.size(); }
 
+	bool setForward(size_t i, GFXPass* pass, const GFXRenderState* state = nullptr);
+
 private:
-	std::vector<Primitive> primitives;
+	std::vector<std::pair<Primitive, Renderable>> primitives;
 };

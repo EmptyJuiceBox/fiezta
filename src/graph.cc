@@ -46,12 +46,14 @@ void GraphNode::record(
 }
 
 void MeshNode::addPrimitive(MeshNode::Primitive prim) {
-	primitives.push_back(prim);
+	// Insert empty renderable, i.e. set `pass` to nullptr.
+	auto pair = std::make_pair(prim, Renderable{{.pass = nullptr}});
+	primitives.push_back(pair);
 }
 
 MeshNode::Primitive MeshNode::getPrimitive(size_t i) {
 	if (i < primitives.size())
-		return primitives[i];
+		return primitives[i].first;
 
 	return { nullptr, nullptr };
 }
@@ -59,4 +61,21 @@ MeshNode::Primitive MeshNode::getPrimitive(size_t i) {
 void MeshNode::erasePrimitive(size_t i) {
 	if (i < primitives.size())
 		primitives.erase(primitives.begin() + i);
+}
+
+bool MeshNode::setForward(size_t i, GFXPass* pass, const GFXRenderState* state) {
+	if (i < primitives.size()) {
+		// Simply set `pass` to nullptr to disable.
+		if (!pass) {
+			primitives[i].second.forward.pass = nullptr;
+			return true;
+		}
+
+		// Or re-initialize the renderable.
+		return gfx_renderable(
+			&primitives[i].second.forward,
+			pass, primitives[i].first.tech, primitives[i].first.prim, state);
+	}
+
+	return false;
 }

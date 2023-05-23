@@ -5,7 +5,7 @@ SRCS = \
 
 CXXFLAGS += \
 	-std=c++2a -Wall -Wextra -Wno-missing-field-initializers -Wpedantic \
-	-isystem groufix/include -Isrc
+	-Igroufix/include -Isrc
 
 LDFLAGS += -L$(OUT) -Wl,-rpath,'$$ORIGIN'
 LDLIBS += -lgroufix

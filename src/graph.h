@@ -27,11 +27,11 @@ public:
 	void update(GraphNode *parent = nullptr);
 
 	// Record the entire sub-graph.
-	void record(GFXRecorder*, GFXPass*, unsigned int frame, void *ptr);
+	void record(GFXRecorder*, unsigned int frame, void *ptr);
 
 protected:
-	// args{Recorder, pass, frame-index, user-pointer}
-	virtual void _record(GFXRecorder*, GFXPass*, unsigned int, void*) {};
+	// args{recorder, frame-index, user-pointer}
+	virtual void _record(GFXRecorder*, unsigned int, void*) {};
 
 	// Set during update().
 	mat4<float> finalTransform;
@@ -64,7 +64,11 @@ public:
 
 	size_t numPrimitives() { return primitives.size(); }
 
-	bool setForward(size_t i, GFXPass* pass, const GFXRenderState* state = nullptr);
+	bool setForward(size_t i, GFXPass *pass, const GFXRenderState *state);
+
+protected:
+	// args{recorder, frame-index, user-pointer}
+	virtual void _record(GFXRecorder*, unsigned int, void*);
 
 private:
 	std::vector<std::pair<Primitive, Renderable>> primitives;

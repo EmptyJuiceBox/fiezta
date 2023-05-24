@@ -36,13 +36,11 @@ void GraphNode::update(GraphNode *parent) {
 		child->update(this);
 }
 
-void GraphNode::record(
-		GFXRecorder *recorder, GFXPass *pass,
-		unsigned int frame, void *ptr) {
-	_record(recorder, pass, frame, ptr);
+void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+	_record(recorder, frame, ptr);
 
 	for (auto &child : children)
-		child->record(recorder, pass, frame, ptr);
+		child->record(recorder, frame, ptr);
 }
 
 void MeshNode::addPrimitive(MeshNode::Primitive prim) {
@@ -63,7 +61,7 @@ void MeshNode::erasePrimitive(size_t i) {
 		primitives.erase(primitives.begin() + i);
 }
 
-bool MeshNode::setForward(size_t i, GFXPass* pass, const GFXRenderState* state) {
+bool MeshNode::setForward(size_t i, GFXPass *pass, const GFXRenderState *state) {
 	if (i < primitives.size()) {
 		// Simply set `pass` to nullptr to disable.
 		if (!pass) {
@@ -78,4 +76,17 @@ bool MeshNode::setForward(size_t i, GFXPass* pass, const GFXRenderState* state) 
 	}
 
 	return false;
+}
+
+void MeshNode::_record(GFXRecorder *recorder, unsigned int, void*) {
+	GFXPass *pass = gfx_recorder_get_pass(recorder);
+	if (!pass) return;
+
+	for (auto &prim : primitives)
+		if (prim.second.forward.pass == pass) {
+			if (prim.first.prim && prim.first.prim->numIndices > 0)
+				gfx_cmd_draw_indexed(recorder, &prim.second.forward, 0, 1, 0, 0, 0);
+			else
+				gfx_cmd_draw(recorder, &prim.second.forward, 0, 1, 0, 0);
+		}
 }

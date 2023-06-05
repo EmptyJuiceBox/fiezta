@@ -24,17 +24,24 @@ public:
 	size_t numChildren() { return children.size(); }
 
 	// Update the entire sub-graph.
-	void update(GraphNode *parent = nullptr);
+	size_t update(GraphNode *parent = nullptr);
+
+	// Copy the entire sub-graph to GPU memory.
+	void copy(void *ptr);
 
 	// Record the entire sub-graph.
 	void record(GFXRecorder*, unsigned int frame, void *ptr);
 
 protected:
+	// args{user-pointer}
+	virtual void _copy(void*) {};
+
 	// args{recorder, frame-index, user-pointer}
 	virtual void _record(GFXRecorder*, unsigned int, void*) {};
 
 	// Set during update().
 	mat4<float> finalTransform;
+	size_t order;
 
 private:
 	std::vector<std::unique_ptr<GraphNode>> children;

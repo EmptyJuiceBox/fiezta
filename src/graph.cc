@@ -28,12 +28,33 @@ std::unique_ptr<GraphNode> GraphNode::claimChild(size_t i) {
 	return {};
 }
 
-void GraphNode::update(GraphNode *parent) {
+size_t GraphNode::update(GraphNode *parent) {
 	finalTransform =
 		parent ? parent->finalTransform * transform : transform;
 
+	// If not given a parent, set order of self to 0.
+	if (!parent) order = 0;
+
+	size_t nextOrder = order + 1;
+	size_t total = 1;
+
+	for (auto &child : children) {
+		// Pre-emptively set order of all children.
+		child->order = nextOrder;
+
+		size_t childTotal = child->update(this);
+		nextOrder += childTotal;
+		total += childTotal;
+	}
+
+	return total;
+}
+
+void GraphNode::copy(void *ptr) {
+	_copy(ptr);
+
 	for (auto &child : children)
-		child->update(this);
+		child->copy(ptr);
 }
 
 void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {

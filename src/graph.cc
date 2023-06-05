@@ -83,10 +83,6 @@ void MeshNode::_record(GFXRecorder *recorder, unsigned int, void*) {
 	if (!pass) return;
 
 	for (auto &prim : primitives)
-		if (prim.second.forward.pass == pass) {
-			if (prim.first.prim && prim.first.prim->numIndices > 0)
-				gfx_cmd_draw_indexed(recorder, &prim.second.forward, 0, 1, 0, 0, 0);
-			else
-				gfx_cmd_draw(recorder, &prim.second.forward, 0, 1, 0, 0);
-		}
+		if (prim.second.forward.pass == pass)
+			gfx_cmd_draw_prim(recorder, &prim.second.forward, 1, 0);
 }

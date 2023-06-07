@@ -15,6 +15,12 @@ public:
 	GFXMemoryFlags flags() { return group->flags; }
 	GFXBufferUsage usage() { return group->usage; }
 
+	uint64_t write(const void *data, size_t size); // Returns offset of written data.
+	void next();
+
 private:
 	GFXGroup *group;
+	size_t current;
+	uint64_t offset;
+	void *raw;
 };

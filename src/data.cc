@@ -29,6 +29,7 @@ FrameData::FrameData(
 }
 
 FrameData::~FrameData() {
+	gfx_unmap(gfx_ref_group_buffer(group, current, 0));
 	gfx_free_group(group);
 }
 

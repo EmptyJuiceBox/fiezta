@@ -66,10 +66,20 @@ public:
 	size_t numPrimitives() { return primitives.size(); }
 	bool setForward(size_t i, GFXPass *pass, const GFXRenderState *state);
 
+	void setSets(GFXSet *set1, GFXSet *set2) { set1 = set1; set2 = set2; }
+
 protected:
+	// args{frame-data-output}
+	virtual void _write(FrameData*);
+
 	// args{recorder, frame-index, user-pointer}
 	virtual void _record(GFXRecorder*, unsigned int, void*);
 
 private:
 	std::vector<std::pair<Primitive, Renderable>> primitives;
+	GFXSet *set1;
+	GFXSet *set2;
+
+	// Set during _write().
+	uint32_t offset;
 };

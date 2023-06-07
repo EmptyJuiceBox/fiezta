@@ -3,7 +3,7 @@
 #include "data.h"
 
 FrameData::FrameData(
-		GFXHeap *heap, size_t count, uint64_t size,
+		GFXHeap *heap, size_t count, uint32_t size,
 		GFXMemoryFlags flags, GFXBufferUsage usage) {
 	auto bindings = std::make_unique<GFXBinding[]>(count);
 	for (size_t b = 0; b < count; ++b) {
@@ -20,9 +20,6 @@ FrameData::FrameData(
 	group = gfx_alloc_group(heap, flags, usage, count, bindings.get());
 	dassert(group);
 
-	current = 0;
-	offset = 0;
-
 	// Map first buffer.
 	raw = gfx_map(gfx_ref_group_buffer(group, current, 0));
 	dassert(raw);
@@ -33,10 +30,10 @@ FrameData::~FrameData() {
 	gfx_free_group(group);
 }
 
-uint64_t FrameData::write(const void *data, size_t size) {
+uint32_t FrameData::write(const void *data, size_t size) {
 	memcpy(((char*)raw) + offset, data, size);
 
-	uint64_t currOffset = offset;
+	uint32_t currOffset = offset;
 	offset += size;
 
 	return currOffset;
@@ -57,4 +54,21 @@ void FrameData::next() {
 
 	gfx_unmap(prev);
 	raw = newRaw;
+}
+
+GFXSetResource FrameData::getAsResource(size_t i, size_t binding, size_t index) {
+	return GFXSetResource{
+		.binding = binding,
+		.index = index,
+		.ref = gfx_ref_group_buffer(group, i, 0)
+	};
+}
+
+GFXSetGroup FrameData::getAsGroup(size_t i, size_t binding) {
+	return GFXSetGroup{
+		.binding = binding,
+		.offset = i,
+		.numBindings = 0,
+		.group = group
+	};
 }

@@ -5,7 +5,7 @@
 class FrameData {
 public:
 	FrameData(
-		GFXHeap *heap, size_t count, uint64_t size,
+		GFXHeap *heap, size_t count, uint32_t size,
 		GFXMemoryFlags flags, GFXBufferUsage usage);
 
 	~FrameData();
@@ -15,12 +15,15 @@ public:
 	GFXMemoryFlags flags() { return group->flags; }
 	GFXBufferUsage usage() { return group->usage; }
 
-	uint64_t write(const void *data, size_t size); // Returns offset of written data.
+	uint32_t write(const void *data, size_t size); // Returns offset of written data.
 	void next();
+
+	GFXSetResource getAsResource(size_t i, size_t binding, size_t index);
+	GFXSetGroup getAsGroup(size_t i, size_t binding);
 
 private:
 	GFXGroup *group;
 	size_t current;
-	uint64_t offset;
+	uint32_t offset;
 	void *raw;
 };

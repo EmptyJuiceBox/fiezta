@@ -85,11 +85,19 @@ bool MeshNode::setForward(size_t i, GFXPass *pass, const GFXRenderState *state) 
 	return false;
 }
 
-void MeshNode::_record(GFXRecorder *recorder, unsigned int, void*) {
+void MeshNode::_write(FrameData *out) {
+	offset = out->write(finalTransform.data, sizeof(finalTransform.data));
+}
+
+void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {
 	GFXPass *pass = gfx_recorder_get_pass(recorder);
 	if (!pass) return;
 
+	GFXSet *set = (frame % 2 == 0) ? set1 : set2;
+
 	for (auto &prim : primitives)
-		if (prim.second.forward.pass == pass)
+		if (prim.second.forward.pass == pass) {
+			if (set) gfx_cmd_bind(recorder, prim.first.tech, 0, 1, 1, &set, &offset);
 			gfx_cmd_draw_prim(recorder, &prim.second.forward, 1, 0);
+		}
 }

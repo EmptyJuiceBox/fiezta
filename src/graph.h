@@ -24,15 +24,15 @@ public:
 	// Update the entire sub-graph.
 	void update(GraphNode *parent = nullptr);
 
-	// Copy the entire sub-graph to GPU memory.
-	void copy(FrameData *out);
+	// Write the entire sub-graph to GPU memory.
+	void write(FrameData *out);
 
 	// Record the entire sub-graph.
 	void record(GFXRecorder*, unsigned int frame, void *ptr);
 
 protected:
 	// args{frame-data-output}
-	virtual void _copy(FrameData*) {};
+	virtual void _write(FrameData*) {};
 
 	// args{recorder, frame-index, user-pointer}
 	virtual void _record(GFXRecorder*, unsigned int, void*) {};

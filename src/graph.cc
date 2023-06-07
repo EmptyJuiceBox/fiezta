@@ -36,11 +36,11 @@ void GraphNode::update(GraphNode *parent) {
 		child->update(this);
 }
 
-void GraphNode::copy(FrameData *out) {
-	_copy(out);
+void GraphNode::write(FrameData *out) {
+	_write(out);
 
 	for (auto &child : children)
-		child->copy(out);
+		child->write(out);
 }
 
 void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {

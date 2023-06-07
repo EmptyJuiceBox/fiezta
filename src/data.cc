@@ -22,7 +22,10 @@ FrameData::FrameData(
 
 	current = 0;
 	offset = 0;
-	raw = nullptr;
+
+	// Map first buffer.
+	raw = gfx_map(gfx_ref_group_buffer(group, current, 0));
+	dassert(raw);
 }
 
 FrameData::~FrameData() {
@@ -51,6 +54,6 @@ void FrameData::next() {
 	void *newRaw = gfx_map(next);
 	dassert(newRaw);
 
-	if (raw) gfx_unmap(prev);
+	gfx_unmap(prev);
 	raw = newRaw;
 }

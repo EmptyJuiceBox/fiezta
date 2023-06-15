@@ -3,6 +3,8 @@
 #include <groufix.h>
 #include <iostream>
 
+#define NUM_VIRTUAL_FRAMES 2
+
 #define dassert(expr) do { \
 	if (!(expr)) { \
 		std::cerr << "Asertion failed: " #expr << '\n'; \

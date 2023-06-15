@@ -29,7 +29,7 @@ int main() {
 	GFXHeap* heap = gfx_create_heap(nullptr);
 	dassert(heap);
 
-	GFXRenderer* renderer = gfx_create_renderer(heap, 2);
+	GFXRenderer* renderer = gfx_create_renderer(heap, NUM_VIRTUAL_FRAMES);
 	dassert(renderer);
 
 	dassert(gfx_renderer_attach_window(renderer, 0, window));

@@ -129,13 +129,14 @@ int main() {
 		gfx_frame_submit(frame);
 	}
 
-	// Termination.
-	for (size_t s = 0; s < sizeof(shaders)/sizeof(GFXShader*); ++s)
-		gfx_destroy_shader(shaders[s]);
-
+	// Cleanup.
 	gfx_destroy_renderer(renderer);
 	gfx_destroy_heap(heap);
 	gfx_destroy_dep(dep);
 	gfx_destroy_window(window);
+
+	for (size_t s = 0; s < sizeof(shaders)/sizeof(GFXShader*); ++s)
+		gfx_destroy_shader(shaders[s]);
+
 	gfx_terminate();
 }

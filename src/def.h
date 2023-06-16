@@ -1,6 +1,7 @@
 #pragma once
 
 #include <groufix.h>
+#include <groufix/assets/gltf.h>
 #include <iostream>
 
 #define NUM_VIRTUAL_FRAMES 2

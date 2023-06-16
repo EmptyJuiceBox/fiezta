@@ -47,11 +47,12 @@ std::unique_ptr<GraphNode> load_gltf(
 	dassert(gfx_file_includer_init(&inc, path, "rb"));
 
 	const char *attributeOrder[] = {
-		"POSITION"
+		"POSITION",
+		"NORMAL"
 	};
 
 	const GFXGltfOptions opts = {
-		.maxAttributes = 1,
+		.maxAttributes = sizeof(attributeOrder)/sizeof(char*),
 		.orderSize = sizeof(attributeOrder)/sizeof(char*),
 		.attributeOrder = attributeOrder
 	};

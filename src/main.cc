@@ -1,44 +1,38 @@
+#include <math.h>
+#include "data.h"
 #include "def.h"
-#include <iostream>
-#include <stdlib.h>
+#include "graph.h"
+#include "mat.h"
 
-struct Context {
-	GFXTechnique *technique;
-	GFXSet *set;
-	GFXRenderable renderable;
-};
-
-static void render_callback(
-		GFXRecorder* recorder, unsigned int /*frame*/, void *ptr) {
-	Context *ctx = (Context *)ptr;
-	// Record stuff.
-	float mvp[] = {
-		1.0f, 0.2f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
-	gfx_cmd_push(recorder, ctx->technique, 0, sizeof(mvp), mvp);
-	gfx_cmd_bind(recorder, ctx->technique, 0, 1, 0, &ctx->set, NULL);
-	gfx_cmd_draw_indexed(recorder, &ctx->renderable, 0, 1, 0, 0, 0);
+void key_press(GFXWindow* window, GFXKey key, int, GFXModifier mod) {
+	switch (key) {
+	case GFX_KEY_C:
+	case GFX_KEY_D:
+	case GFX_KEY_Z:
+		if (mod & GFX_MOD_CONTROL)
+			gfx_window_set_close(window, true);
+		break;
+	case GFX_KEY_Q:
+	case GFX_KEY_ESCAPE:
+		gfx_window_set_close(window, true);
+	default:
+		break;
+	}
 }
 
-static GFXShader *load_shader(
-		GFXDevice *device, GFXShaderStage stage, const char *path) {
-	// Open file & includer.
+GFXShader *load_shader(GFXShaderStage stage, const char *path) {
 	GFXFile file;
 	dassert(gfx_file_init(&file, path, "rb"));
 
 	GFXFileIncluder inc;
 	dassert(gfx_file_includer_init(&inc, path, "rb"));
 
-	// Create & compile shader.
-	GFXShader *shader = gfx_create_shader(stage, device);
+	GFXShader *shader = gfx_create_shader(stage, nullptr);
 	dassert(shader);
 
-	dassert(gfx_shader_compile(shader,
-		GFX_GLSL, 1,
-		&file.reader, &inc.includer, NULL, NULL));
+	dassert(gfx_shader_compile(
+		shader, GFX_GLSL, 1,
+		&file.reader, &inc.includer, nullptr, nullptr));
 
 	gfx_file_includer_clear(&inc);
 	gfx_file_clear(&file);
@@ -46,159 +40,226 @@ static GFXShader *load_shader(
 	return shader;
 }
 
+GraphNode *load_gltf_node(
+		GFXTechnique *tech, GFXPass *pass,
+		GraphNode *parent, GFXGltfNode *node) {
+	std::unique_ptr<GraphNode> parsed = {};
+
+	if (!node->mesh)
+		parsed = std::make_unique<GraphNode>(node->matrix);
+	else {
+		auto mesh = std::make_unique<MeshNode>(node->matrix);
+
+		for (size_t p = 0; p < node->mesh->numPrimitives; ++p) {
+			GFXGltfPrimitive *prim = &node->mesh->primitives[p];
+			mesh->addPrimitive(MeshNode::Primitive{tech, prim->primitive});
+			mesh->setForward(0, pass, nullptr);
+		}
+
+		parsed = std::move(mesh);
+	}
+
+	for (size_t n = 0; n < node->numChildren; ++n)
+		load_gltf_node(tech, pass, parsed.get(), node->children[n]);
+
+	return parent->addChild(std::move(parsed));
+}
+
+std::unique_ptr<GraphNode> load_gltf(
+		GFXHeap *heap, GFXDependency *dep,
+		GFXTechnique *tech, GFXPass *pass,
+		const char *path) {
+	GFXFile file;
+	dassert(gfx_file_init(&file, path, "rb"));
+
+	GFXFileIncluder inc;
+	dassert(gfx_file_includer_init(&inc, path, "rb"));
+
+	const char *attributeOrder[] = {
+		"POSITION",
+		"NORMAL"
+	};
+
+	const GFXGltfOptions opts = {
+		.maxAttributes = sizeof(attributeOrder)/sizeof(char*),
+		.orderSize = sizeof(attributeOrder)/sizeof(char*),
+		.attributeOrder = attributeOrder
+	};
+
+	GFXGltfResult result;
+	dassert(gfx_load_gltf(
+		heap, dep, &opts,
+		GFX_IMAGE_ANY_FORMAT, GFX_IMAGE_SAMPLED,
+		&file.reader, &inc.includer, &result));
+
+	gfx_file_includer_clear(&inc);
+	gfx_file_clear(&file);
+
+	// Convert to graph.
+	auto root = std::make_unique<GraphNode>();
+
+	if (result.scene) {
+		for (size_t n = 0; n < result.scene->numNodes; ++n)
+			load_gltf_node(tech, pass, root.get(), result.scene->nodes[n]);
+	}
+
+	gfx_release_gltf(&result);
+
+	return root;
+}
+
+struct Context {
+	GFXTechnique *tech;
+	GraphNode *graph;
+};
+
+void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+	uint32_t width, height, layers;
+	gfx_recorder_get_size(recorder, &width, &height, &layers);
+
+	float invAspect = (width != 0) ? (float)height / (float)width : 1.0f;
+	mat4<float> viewProj;
+	viewProj[0][0] = invAspect;
+	viewProj[2][2] = -0.5f;
+	viewProj[2][3] = 0.7f;
+
+	const float pi2 = 6.28318530718f;
+	static float rot = 0.0f;
+	rot = (rot >= pi2 ? rot - pi2 : rot) + 0.01f;
+	float hCos = cosf(rot);
+	float hSin = sinf(rot);
+
+	mat4<float> model = mat4<float>(
+		-0.7f * hCos, 0.7f * hSin, 0.0f, 0.0f,
+		 0.0f,        0.0f,        0.7f, 0.0f,
+		 0.7f * hSin, 0.7f * hCos, 0.0f, 0.0f,
+		 0.0f,        0.0f,        0.0f, 1.0f);
+
+	viewProj *= model;
+
+	Context *ctx = (Context*)ptr;
+	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj.data), viewProj.data);
+	ctx->graph->record(recorder, frame, nullptr);
+}
+
 int main() {
-	Context ctx;
-
 	dassert(gfx_init());
-
-	GFXDevice *device = NULL;
 
 	GFXWindow *window = gfx_create_window(
 		GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
-		device, NULL, {600, 400, 0}, "groufix");
+		nullptr, nullptr, {600, 400, 0}, "fiezta");
 	dassert(window);
 
-	GFXHeap *heap = gfx_create_heap(device);
+	window->events.key.press = key_press;
+
+	GFXHeap *heap = gfx_create_heap(nullptr);
 	dassert(heap);
 
-	GFXDependency *dep = gfx_create_dep(device, 2);
+	GFXDependency *dep = gfx_create_dep(nullptr, NUM_VIRTUAL_FRAMES);
 	dassert(dep);
 
-	GFXRenderer *renderer = gfx_create_renderer(heap, 2);
+	GFXRenderer *renderer = gfx_create_renderer(heap, NUM_VIRTUAL_FRAMES);
 	dassert(renderer);
 
 	dassert(gfx_renderer_attach_window(renderer, 0, window));
 
-	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
-	dassert(recorder);
+	dassert(gfx_renderer_attach(renderer, 1,
+		GFXAttachment{
+			.type = GFX_IMAGE_2D,
+			.flags = GFX_MEMORY_NONE,
+			.usage = GFX_IMAGE_TEST | GFX_IMAGE_TRANSIENT,
 
-	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, NULL);
+			.format = GFX_FORMAT_D16_UNORM,
+			.samples = 1,
+			.mipmaps = 1,
+			.layers = 1,
+
+			.size = GFX_SIZE_RELATIVE,
+			.ref = 0,
+			.xScale = 1.0f,
+			.yScale = 1.0f,
+			.zScale = 1.0f
+		}));
+
+	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, nullptr);
 	dassert(pass);
 
 	dassert(gfx_pass_consume(
 		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
 	gfx_pass_clear(
-		pass, 0, GFX_IMAGE_COLOR, GFXClear{{0.0f, 0.0f, 0.0f, 0.0f}});
+		pass, 0, GFX_IMAGE_COLOR, {{0.0f, 0.0f, 0.0f, 0.0f}});
 
-	uint16_t indexData[] = {
-		0, 1, 3, 2
+	dassert(gfx_pass_consume(
+		pass, 1, GFX_ACCESS_ATTACHMENT_TEST, GFX_STAGE_ANY));
+	gfx_pass_clear(
+		pass, 1, GFX_IMAGE_DEPTH, {.test={1.0f}});
+
+	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
+	dassert(recorder);
+
+	// Load shaders.
+	GFXShader *shaders[] = {
+		load_shader(GFX_STAGE_VERTEX, "assets/basic.vert"),
+		load_shader(GFX_STAGE_FRAGMENT, "assets/basic.frag")
 	};
 
-	float vertexData[] = {
-		-0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   0.0f, 0.0f,
-		 0.5f, -0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
-		 0.5f,  0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-		-0.5f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f
-	};
+	GFXTechnique *tech = gfx_renderer_add_tech(
+		renderer, sizeof(shaders)/sizeof(GFXShader*), shaders);
+	dassert(tech);
+	dassert(gfx_tech_lock(tech));
 
-	GFXAttribute attribs[] = {
-		{
-			.format = GFX_FORMAT_R32G32B32_SFLOAT,
-			.offset = 0,
-			.stride = sizeof(float) * 8,
-			.buffer = GFX_REF_NULL,
-		}, {
-			.format = GFX_FORMAT_R32G32B32_SFLOAT,
-			.offset = sizeof(float) * 3,
-			.stride = sizeof(float) * 8,
-			.buffer = GFX_REF_NULL,
-		}, {
-			.format = GFX_FORMAT_R32G32_SFLOAT,
-			.offset = sizeof(float) * 6,
-			.stride = sizeof(float) * 8,
-			.buffer = GFX_REF_NULL,
-		},
-	};
-	GFXPrimitive *primitive = gfx_alloc_prim(heap,
-		GFX_MEMORY_WRITE, GFX_BUFFER_NONE,
-		GFX_TOPO_TRIANGLE_STRIP, 4, sizeof(uint16_t), 4,
-		GFX_REF_NULL, 3, attribs);
-	dassert(primitive);
-
-	GFXBufferRef vert = gfx_ref_prim_vertices(primitive, 0);
-	GFXBufferRef ind = gfx_ref_prim_indices(primitive);
-
-	dassert(gfx_write(vertexData, vert, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(vertexData)}}),
-		ref(GFXRegion{}),
-		ref(GFXInject{
-			gfx_dep_sig(dep, GFX_ACCESS_VERTEX_READ, GFX_STAGE_ANY),
-		})));
-
-	dassert(gfx_write(indexData, ind, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{.buf = {.offset = 0, .size = sizeof(indexData)}}),
-		ref(GFXRegion{}),
-		ref(GFXInject{
-			gfx_dep_sig(dep, GFX_ACCESS_INDEX_READ, GFX_STAGE_ANY)
-		})));
-
-	uint8_t imgData[] = {
-		255, 0, 255, 0,
-		0, 255, 0, 255,
-		255, 0, 255, 0,
-		0, 255, 0, 255
-	};
-
-	GFXImage* image = gfx_alloc_image(heap,
-		GFX_IMAGE_2D, GFX_MEMORY_WRITE,
-		GFX_IMAGE_SAMPLED, GFX_FORMAT_R8_UNORM, 1, 1,
-		4, 4, 1);
-	dassert(image);
-
-	GFXImageRef img = gfx_ref_image(image);
-
-	dassert(gfx_write(imgData, img, GFX_TRANSFER_ASYNC, 1, 1,
-		ref(GFXRegion{}),
-		ref(GFXRegion{.img = {
-			.aspect = GFX_IMAGE_COLOR,
-			.mipmap = 0, .layer = 0,  .numLayers = 1,
-			.x = 0,      .y = 0,      .z = 0,
-			.width = 4,  .height = 4, .depth = 1
-		}}),
-		ref(GFXInject{
-			gfx_dep_sig(dep, GFX_ACCESS_SAMPLED_READ, GFX_STAGE_FRAGMENT)
-		})));
+	// Load glTF & setup data.
+	std::unique_ptr<GraphNode> graph =
+		load_gltf(heap, dep, tech, pass, "assets/5t6.gltf");
 
 	dassert(gfx_heap_flush(heap));
 
-	GFXShader *vertex = load_shader(
-		device, GFX_STAGE_VERTEX, "assets/basic.vert");
-	dassert(vertex);
+	std::unique_ptr<FrameData> data = {};
+	const size_t dataCount = graph->writes();
 
-	GFXShader *fragment = load_shader(
-		device, GFX_STAGE_FRAGMENT, "assets/basic.frag");
-	dassert(fragment);
+	if (dataCount > 0) {
+		data = std::make_unique<FrameData>(
+			heap, NUM_VIRTUAL_FRAMES, sizeof(float) * 16 * dataCount,
+			GFX_MEMORY_NONE, GFX_BUFFER_UNIFORM);
 
-	GFXShader *shaders[] = {vertex, fragment};
-	ctx.technique = gfx_renderer_add_tech(renderer, 2, shaders);
-	dassert(ctx.technique);
-	gfx_tech_immutable(ctx.technique, 0, 0); // Warns on fail.
+		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
+			GFXSetGroup group = data->getAsGroup(f, 0);
+			GFXSet *set = gfx_renderer_add_set(
+				renderer, tech, 0,
+				0, 1, 0, 0,
+				nullptr, &group, nullptr, nullptr);
 
-	ctx.set = gfx_renderer_add_set(
-		renderer, ctx.technique, 0,
-		1, 0, 0, 0,
-		ref(GFXSetResource{.binding = 0, .index = 0, .ref = img}),
-		NULL, NULL, NULL);
-	dassert(ctx.set);
+			graph->assignSet(f, set);
+		}
+	}
 
-	gfx_renderable(&ctx.renderable, pass, ctx.technique, primitive, NULL);
-
-	while (!gfx_window_should_close(window))
-	{
+	// Main loop.
+	while (!gfx_window_should_close(window)) {
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
 		gfx_poll_events();
+
+		if (data) {
+			graph->update();
+			graph->write(data.get());
+			data->next();
+		}
+
+		Context ctx = Context{ tech, graph.get() };
 		gfx_frame_start(frame);
-		gfx_pass_inject(pass, 1, ref(GFXInject{ gfx_dep_wait(dep) }));
-		gfx_recorder_render(recorder, pass, render_callback, (void *)&ctx);
+		gfx_pass_inject(pass, 1, ref(gfx_dep_wait(dep)));
+		gfx_recorder_render(recorder, pass, render, &ctx);
 		gfx_frame_submit(frame);
 	}
 
+	// Cleanup.
 	gfx_destroy_renderer(renderer);
-	gfx_destroy_shader(vertex);
-	gfx_destroy_shader(fragment);
+	data.reset();
 	gfx_destroy_heap(heap);
 	gfx_destroy_dep(dep);
 	gfx_destroy_window(window);
+
+	for (size_t s = 0; s < sizeof(shaders)/sizeof(GFXShader*); ++s)
+		gfx_destroy_shader(shaders[s]);
 
 	gfx_terminate();
 }

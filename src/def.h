@@ -1,6 +1,10 @@
 #pragma once
 
 #include <groufix.h>
+#include <groufix/assets/gltf.h>
+#include <iostream>
+
+#define NUM_VIRTUAL_FRAMES 2
 
 #define dassert(expr) do { \
 	if (!(expr)) { \

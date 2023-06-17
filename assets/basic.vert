@@ -1,21 +1,19 @@
 #version 450
 
 layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 color;
-layout(location = 2) in vec2 texCoord;
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
+layout(location = 1) in vec3 normal;
 
-out gl_PerVertex {
-  vec4 gl_Position;
+layout(location = 0) out vec3 fragColor;
+
+layout(row_major, set = 0, binding = 0) uniform PerObject {
+  mat4 model;
 };
 
 layout(row_major, push_constant) uniform Constants {
-  mat4 mvp;
+  mat4 viewProj;
 };
 
 void main() {
-  gl_Position = mvp * vec4(position, 1.0);
-  fragColor = color;
-  fragTexCoord = texCoord;
+  gl_Position = viewProj * model * vec4(position, 1.0);
+  fragColor = (normal + vec3(1.0)) * 0.5;
 }

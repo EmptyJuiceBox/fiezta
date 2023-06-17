@@ -37,10 +37,27 @@ void GraphNode::update(GraphNode *parent) {
 }
 
 void GraphNode::write(FrameData *out) {
-	_write(out);
+	if (_writes())
+		_write(out);
 
 	for (auto &child : children)
 		child->write(out);
+}
+
+size_t GraphNode::writes() {
+	size_t childWrites = 0;
+
+	for (auto &child : children)
+		childWrites += child->writes();
+
+	return (_writes() ? 1 : 0) + childWrites;
+}
+
+void GraphNode::assignSet(unsigned int frame, GFXSet *set) {
+	_assignSet(frame, set);
+
+	for (auto &child : children)
+		child->assignSet(frame, set);
 }
 
 void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {
@@ -87,6 +104,10 @@ bool MeshNode::setForward(size_t i, GFXPass *pass, const GFXRenderState *state) 
 
 void MeshNode::_write(FrameData *out) {
 	offset = out->write(finalTransform.data, sizeof(finalTransform.data));
+}
+
+void MeshNode::_assignSet(unsigned int frame, GFXSet *set) {
+	sets[frame] = set;
 }
 
 void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {

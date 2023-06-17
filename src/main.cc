@@ -76,6 +76,25 @@ std::unique_ptr<GraphNode> load_gltf(
 	return root;
 }
 
+struct Context {
+	GFXTechnique *tech;
+	GraphNode *graph;
+};
+
+void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+	Context *ctx = (Context*)ptr;
+
+	float viewProj[] = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+
+	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj), viewProj);
+	ctx->graph->record(recorder, frame, nullptr);
+}
+
 int main() {
 	dassert(gfx_init());
 
@@ -105,6 +124,9 @@ int main() {
 	gfx_pass_clear(
 		pass, 0, GFX_IMAGE_COLOR, {{0.0f, 0.0f, 0.0f, 0.0f}});
 
+	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
+	dassert(recorder);
+
 	// Load shaders.
 	GFXShader *shaders[] = {
 		load_shader(GFX_STAGE_VERTEX, "assets/basic.vert"),
@@ -114,23 +136,53 @@ int main() {
 	GFXTechnique *tech = gfx_renderer_add_tech(
 		renderer, sizeof(shaders)/sizeof(GFXShader*), shaders);
 	dassert(tech);
+	dassert(gfx_tech_lock(tech));
 
-	// Load glTF.
+	// Load glTF & setup data.
 	std::unique_ptr<GraphNode> graph = load_gltf(heap, dep, "assets/5t6.gltf");
 
 	dassert(gfx_heap_flush(heap));
+
+	std::unique_ptr<FrameData> data = {};
+	const size_t dataCount = graph->writes();
+
+	if (dataCount > 0) {
+		data = std::make_unique<FrameData>(
+			heap, NUM_VIRTUAL_FRAMES, sizeof(float) * 16 * dataCount,
+			GFX_MEMORY_NONE, GFX_BUFFER_UNIFORM);
+
+		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
+			GFXSetGroup group = data->getAsGroup(f, 0);
+			GFXSet *set = gfx_renderer_add_set(
+				renderer, tech, 0,
+				0, 1, 0, 0,
+				nullptr, &group, nullptr, nullptr);
+
+			graph->assignSet(f, set);
+		}
+	}
 
 	// Main loop.
 	while (!gfx_window_should_close(window)) {
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
 		gfx_poll_events();
+
+		if (data) {
+			graph->update();
+			graph->write(data.get());
+			data->next();
+		}
+
+		Context ctx = Context{ tech, graph.get() };
 		gfx_frame_start(frame);
 		gfx_pass_inject(pass, 1, ref(gfx_dep_wait(dep)));
+		gfx_recorder_render(recorder, pass, render, &ctx);
 		gfx_frame_submit(frame);
 	}
 
 	// Cleanup.
 	gfx_destroy_renderer(renderer);
+	data.reset();
 	gfx_destroy_heap(heap);
 	gfx_destroy_dep(dep);
 	gfx_destroy_window(window);

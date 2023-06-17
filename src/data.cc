@@ -16,7 +16,7 @@ FrameData::FrameData(
 		};
 	}
 
-	flags |= GFX_MEMORY_HOST_VISIBLE;
+	flags |= GFX_MEMORY_HOST_VISIBLE | GFX_MEMORY_DEVICE_LOCAL;
 	group = gfx_alloc_group(heap, flags, usage, count, bindings.get());
 	dassert(group);
 

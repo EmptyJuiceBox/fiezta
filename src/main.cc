@@ -4,7 +4,17 @@
 #include "graph.h"
 #include "mat.h"
 
-void key_press(GFXWindow* window, GFXKey key, int, GFXModifier mod) {
+struct Input {
+	bool left;
+	bool right;
+	bool up;
+	bool down;
+
+	double x[2];
+	double y[2];
+};
+
+void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
 	switch (key) {
 	case GFX_KEY_C:
 	case GFX_KEY_D:
@@ -15,9 +25,64 @@ void key_press(GFXWindow* window, GFXKey key, int, GFXModifier mod) {
 	case GFX_KEY_Q:
 	case GFX_KEY_ESCAPE:
 		gfx_window_set_close(window, true);
+		break;
 	default:
 		break;
 	}
+
+	Input *inp = (Input*)window->ptr;
+	switch (key) {
+	case GFX_KEY_A:
+	case GFX_KEY_LEFT:
+		inp->left = true;
+		break;
+	case GFX_KEY_D:
+	case GFX_KEY_RIGHT:
+		inp->right = true;
+		break;
+	case GFX_KEY_W:
+	case GFX_KEY_UP:
+		inp->up = true;
+		break;
+	case GFX_KEY_S:
+	case GFX_KEY_DOWN:
+		inp->down = true;
+		break;
+	default:
+		break;
+	}
+}
+
+void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
+	Input *inp = (Input*)window->ptr;
+	switch (key) {
+	case GFX_KEY_A:
+	case GFX_KEY_LEFT:
+		inp->left = false;
+		break;
+	case GFX_KEY_D:
+	case GFX_KEY_RIGHT:
+		inp->right = false;
+		break;
+	case GFX_KEY_W:
+	case GFX_KEY_UP:
+		inp->up = false;
+		break;
+	case GFX_KEY_S:
+	case GFX_KEY_DOWN:
+		inp->down = false;
+		break;
+	default:
+		break;
+	}
+}
+
+void mouse_move(GFXWindow *window, double x, double y) {
+	Input *inp = (Input*)window->ptr;
+	inp->x[1] = inp->x[0];
+	inp->y[1] = inp->y[0];
+	inp->x[0] = x;
+	inp->y[0] = y;
 }
 
 GFXShader *load_shader(GFXShaderStage stage, const char *path) {
@@ -108,36 +173,49 @@ std::unique_ptr<GraphNode> load_gltf(
 	return root;
 }
 
+struct Camera {
+	double x;
+	double z;
+};
+
 struct Context {
 	GFXTechnique *tech;
 	GraphNode *graph;
+	Camera cam;
 };
 
 void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+	Context *ctx = (Context*)ptr;
+
 	uint32_t width, height, layers;
 	gfx_recorder_get_size(recorder, &width, &height, &layers);
 
-	float invAspect = (width != 0) ? (float)height / (float)width : 1.0f;
-	mat4<float> viewProj;
-	viewProj[0][0] = invAspect;
-	viewProj[2][2] = -0.5f;
-	viewProj[2][3] = 0.7f;
-
 	const float pi2 = 6.28318530718f;
-	static float rot = 0.0f;
-	rot = (rot >= pi2 ? rot - pi2 : rot) + 0.01f;
-	float hCos = cosf(rot);
-	float hSin = sinf(rot);
+	const float vertFov = pi2 / 4.0f;
+	const float aspect = (height != 0) ? (float)width / (float)height : 1.0f;
+	const float near = 0.01f;
+	const float far = 100.0f;
+	const float focalLen = 1.0f / tanf(vertFov / 2.0f);
 
-	mat4<float> model = mat4<float>(
-		-0.7f * hCos, 0.7f * hSin, 0.0f, 0.0f,
-		 0.0f,        0.0f,        0.7f, 0.0f,
-		 0.7f * hSin, 0.7f * hCos, 0.0f, 0.0f,
-		 0.0f,        0.0f,        0.0f, 1.0f);
+	const float x = focalLen / aspect;
+	const float y = -focalLen;
+	const float A = near / (far - near);
+	const float B = far * A;
 
-	viewProj *= model;
+	const auto projection = mat4<float>(
+		x,    0.0f,  0.0f, 0.0f,
+		0.0f, y,     0.0f, 0.0f,
+		0.0f, 0.0f,  A,    B,
+		0.0f, 0.0f, -1.0f, 0.0f);
 
-	Context *ctx = (Context*)ptr;
+	const auto view = mat4<float>(
+		1.0f, 0.0f, 0.0f, -ctx->cam.x,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, -ctx->cam.z,
+		0.0f, 0.0f, 0.0f, 1.0f);
+
+	const mat4<float> viewProj = projection * view;
+
 	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj.data), viewProj.data);
 	ctx->graph->record(recorder, frame, nullptr);
 }
@@ -150,7 +228,19 @@ int main() {
 		nullptr, nullptr, {600, 400, 0}, "fiezta");
 	dassert(window);
 
+	Input input = {
+		.left = false,
+		.right = false,
+		.up = false,
+		.down = false,
+		.x = {0.0, 0.0},
+		.y = {0.0, 0.0}
+	};
+
+	window->ptr = &input;
 	window->events.key.press = key_press;
+	window->events.key.release = key_release;
+	window->events.mouse.move = mouse_move;
 
 	GFXHeap *heap = gfx_create_heap(nullptr);
 	dassert(heap);
@@ -184,6 +274,15 @@ int main() {
 	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, nullptr);
 	dassert(pass);
 
+	GFXDepthState depth = {
+		GFX_DEPTH_WRITE, GFX_CMP_GREATER}; // Reverse depth.
+	GFXRasterState raster ={
+		GFX_RASTER_FILL,
+		GFX_FRONT_FACE_CCW, GFX_CULL_BACK,
+		GFX_TOPO_TRIANGLE_LIST, 1};
+
+	gfx_pass_set_state(pass, GFXRenderState{&raster, nullptr, &depth, nullptr});
+
 	dassert(gfx_pass_consume(
 		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
 	gfx_pass_clear(
@@ -192,7 +291,7 @@ int main() {
 	dassert(gfx_pass_consume(
 		pass, 1, GFX_ACCESS_ATTACHMENT_TEST, GFX_STAGE_ANY));
 	gfx_pass_clear(
-		pass, 1, GFX_IMAGE_DEPTH, {.test={1.0f}});
+		pass, 1, GFX_IMAGE_DEPTH, {.test={0.0f}});
 
 	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
 	dassert(recorder);
@@ -210,7 +309,7 @@ int main() {
 
 	// Load glTF & setup data.
 	std::unique_ptr<GraphNode> graph =
-		load_gltf(heap, dep, tech, pass, "assets/5t6.gltf");
+		load_gltf(heap, dep, tech, pass, "assets/DamagedHelmet.gltf");
 
 	dassert(gfx_heap_flush(heap));
 
@@ -234,17 +333,35 @@ int main() {
 	}
 
 	// Main loop.
+	Context ctx = {
+		.tech = tech,
+		.graph = graph.get(),
+		.cam = {0.0, 0.0}
+	};
+
 	while (!gfx_window_should_close(window)) {
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
 		gfx_poll_events();
 
+		// Move camera.
+		const double moveSpeed = 0.01;
+		if (input.left)
+			ctx.cam.x -= moveSpeed;
+		if (input.right)
+			ctx.cam.x += moveSpeed;
+		if (input.up)
+			ctx.cam.z -= moveSpeed;
+		if (input.down)
+			ctx.cam.z += moveSpeed;
+
+		// Update data.
 		if (data) {
 			graph->update();
 			graph->write(data.get());
 			data->next();
 		}
 
-		Context ctx = Context{ tech, graph.get() };
+		// Render frame.
 		gfx_frame_start(frame);
 		gfx_pass_inject(pass, 1, ref(gfx_dep_wait(dep)));
 		gfx_recorder_render(recorder, pass, render, &ctx);

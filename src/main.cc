@@ -1,6 +1,8 @@
+#include <math.h>
 #include "data.h"
 #include "def.h"
 #include "graph.h"
+#include "mat.h"
 
 void key_press(GFXWindow* window, GFXKey key, int, GFXModifier mod) {
 	switch (key) {
@@ -38,8 +40,35 @@ GFXShader *load_shader(GFXShaderStage stage, const char *path) {
 	return shader;
 }
 
+GraphNode *load_gltf_node(
+		GFXTechnique *tech, GFXPass *pass,
+		GraphNode *parent, GFXGltfNode *node) {
+	std::unique_ptr<GraphNode> parsed = {};
+
+	if (!node->mesh)
+		parsed = std::make_unique<GraphNode>(node->matrix);
+	else {
+		auto mesh = std::make_unique<MeshNode>(node->matrix);
+
+		for (size_t p = 0; p < node->mesh->numPrimitives; ++p) {
+			GFXGltfPrimitive *prim = &node->mesh->primitives[p];
+			mesh->addPrimitive(MeshNode::Primitive{tech, prim->primitive});
+			mesh->setForward(0, pass, nullptr);
+		}
+
+		parsed = std::move(mesh);
+	}
+
+	for (size_t n = 0; n < node->numChildren; ++n)
+		load_gltf_node(tech, pass, parsed.get(), node->children[n]);
+
+	return parent->addChild(std::move(parsed));
+}
+
 std::unique_ptr<GraphNode> load_gltf(
-		GFXHeap *heap, GFXDependency* dep, const char *path) {
+		GFXHeap *heap, GFXDependency *dep,
+		GFXTechnique *tech, GFXPass *pass,
+		const char *path) {
 	GFXFile file;
 	dassert(gfx_file_init(&file, path, "rb"));
 
@@ -69,7 +98,10 @@ std::unique_ptr<GraphNode> load_gltf(
 	// Convert to graph.
 	auto root = std::make_unique<GraphNode>();
 
-	// TODO: Convert to graph.
+	if (result.scene) {
+		for (size_t n = 0; n < result.scene->numNodes; ++n)
+			load_gltf_node(tech, pass, root.get(), result.scene->nodes[n]);
+	}
 
 	gfx_release_gltf(&result);
 
@@ -82,16 +114,31 @@ struct Context {
 };
 
 void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+	uint32_t width, height, layers;
+	gfx_recorder_get_size(recorder, &width, &height, &layers);
+
+	float invAspect = (width != 0) ? (float)height / (float)width : 1.0f;
+	mat4<float> viewProj;
+	viewProj[0][0] = invAspect;
+	viewProj[2][2] = -0.5f;
+	viewProj[2][3] = 0.7f;
+
+	const float pi2 = 6.28318530718f;
+	static float rot = 0.0f;
+	rot = (rot >= pi2 ? rot - pi2 : rot) + 0.01f;
+	float hCos = cosf(rot);
+	float hSin = sinf(rot);
+
+	mat4<float> model = mat4<float>(
+		-0.7f * hCos, 0.7f * hSin, 0.0f, 0.0f,
+		 0.0f,        0.0f,        0.7f, 0.0f,
+		 0.7f * hSin, 0.7f * hCos, 0.0f, 0.0f,
+		 0.0f,        0.0f,        0.0f, 1.0f);
+
+	viewProj *= model;
+
 	Context *ctx = (Context*)ptr;
-
-	float viewProj[] = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
-
-	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj), viewProj);
+	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj.data), viewProj.data);
 	ctx->graph->record(recorder, frame, nullptr);
 }
 
@@ -116,6 +163,24 @@ int main() {
 
 	dassert(gfx_renderer_attach_window(renderer, 0, window));
 
+	dassert(gfx_renderer_attach(renderer, 1,
+		GFXAttachment{
+			.type = GFX_IMAGE_2D,
+			.flags = GFX_MEMORY_NONE,
+			.usage = GFX_IMAGE_TEST | GFX_IMAGE_TRANSIENT,
+
+			.format = GFX_FORMAT_D16_UNORM,
+			.samples = 1,
+			.mipmaps = 1,
+			.layers = 1,
+
+			.size = GFX_SIZE_RELATIVE,
+			.ref = 0,
+			.xScale = 1.0f,
+			.yScale = 1.0f,
+			.zScale = 1.0f
+		}));
+
 	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, nullptr);
 	dassert(pass);
 
@@ -123,6 +188,11 @@ int main() {
 		pass, 0, GFX_ACCESS_ATTACHMENT_WRITE, GFX_STAGE_ANY));
 	gfx_pass_clear(
 		pass, 0, GFX_IMAGE_COLOR, {{0.0f, 0.0f, 0.0f, 0.0f}});
+
+	dassert(gfx_pass_consume(
+		pass, 1, GFX_ACCESS_ATTACHMENT_TEST, GFX_STAGE_ANY));
+	gfx_pass_clear(
+		pass, 1, GFX_IMAGE_DEPTH, {.test={1.0f}});
 
 	GFXRecorder *recorder = gfx_renderer_add_recorder(renderer);
 	dassert(recorder);
@@ -139,7 +209,8 @@ int main() {
 	dassert(gfx_tech_lock(tech));
 
 	// Load glTF & setup data.
-	std::unique_ptr<GraphNode> graph = load_gltf(heap, dep, "assets/5t6.gltf");
+	std::unique_ptr<GraphNode> graph =
+		load_gltf(heap, dep, tech, pass, "assets/5t6.gltf");
 
 	dassert(gfx_heap_flush(heap));
 

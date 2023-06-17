@@ -49,11 +49,9 @@ void FrameData::next() {
 	GFXBufferRef next = gfx_ref_group_buffer(group, current, 0);
 
 	// Map next first then unmap previous.
-	void *newRaw = gfx_map(next);
-	dassert(newRaw);
-
+	raw = gfx_map(next);
+	dassert(raw);
 	gfx_unmap(prev);
-	raw = newRaw;
 }
 
 GFXSetResource FrameData::getAsResource(size_t i, size_t binding, size_t index) {

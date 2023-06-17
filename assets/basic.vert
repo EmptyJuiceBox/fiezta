@@ -15,5 +15,5 @@ layout(row_major, push_constant) uniform Constants {
 
 void main() {
   gl_Position = viewProj * model * vec4(position, 1.0);
-  fragColor = normal;
+  fragColor = (normal + vec3(1.0)) * 0.5;
 }

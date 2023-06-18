@@ -276,7 +276,7 @@ int main() {
 
 	GFXDepthState depth = {
 		GFX_DEPTH_WRITE, GFX_CMP_GREATER}; // Reverse depth.
-	GFXRasterState raster ={
+	GFXRasterState raster = {
 		GFX_RASTER_FILL,
 		GFX_FRONT_FACE_CCW, GFX_CULL_BACK,
 		GFX_TOPO_TRIANGLE_LIST, 1};
@@ -305,6 +305,7 @@ int main() {
 	GFXTechnique *tech = gfx_renderer_add_tech(
 		renderer, sizeof(shaders)/sizeof(GFXShader*), shaders);
 	dassert(tech);
+	dassert(gfx_tech_dynamic(tech, 0, 0));
 	dassert(gfx_tech_lock(tech));
 
 	// Load glTF & setup data.
@@ -323,10 +324,11 @@ int main() {
 
 		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
 			GFXSetGroup group = data->getAsGroup(f, 0);
+			GFXView view = {.binding = 0, .index = 0, .range = {.buf={0, sizeof(float)*16}}};
 			GFXSet *set = gfx_renderer_add_set(
 				renderer, tech, 0,
-				0, 1, 0, 0,
-				nullptr, &group, nullptr, nullptr);
+				0, 1, 1, 0,
+				nullptr, &group, &view, nullptr);
 
 			graph->assignSet(f, set);
 		}

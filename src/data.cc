@@ -21,6 +21,9 @@ FrameData::FrameData(
 	dassert(group);
 
 	// Map first buffer.
+	current = 0;
+	offset = 0;
+
 	raw = gfx_map(gfx_ref_group_buffer(group, current, 0));
 	dassert(raw);
 }

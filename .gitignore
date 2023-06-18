@@ -4,6 +4,7 @@
 /compile_commands.json
 *.swo
 *.swp
+*.fuse_hidden*
 
 # make files
 .groufix-shaderc-deps.stamp

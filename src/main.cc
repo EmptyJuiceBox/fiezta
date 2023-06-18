@@ -344,7 +344,7 @@ int main() {
 
 	// Load glTF & setup data.
 	std::unique_ptr<GraphNode> graph =
-		load_gltf(heap, dep, tech, pass, "assets/DamagedHelmet/model.gltf");
+		load_gltf(heap, dep, tech, pass, "assets/5t6.gltf");
 
 	dassert(gfx_heap_flush(heap));
 

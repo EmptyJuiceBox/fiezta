@@ -14,6 +14,7 @@ public:
 	GraphNode() {}
 	GraphNode(const mat4<float> &mat) : transform(mat) {}
 	GraphNode(const float *mat) : transform(mat) {}
+	virtual ~GraphNode() = default;
 
 	GraphNode *addChild(std::unique_ptr<GraphNode> node);
 	GraphNode *getChild(size_t i);
@@ -71,6 +72,7 @@ public:
 	MeshNode() {}
 	MeshNode(const mat4<float> &mat) : GraphNode(mat) {}
 	MeshNode(const float *mat) : GraphNode(mat) {}
+	virtual ~MeshNode() = default;
 
 	void addPrimitive(Primitive prim);
 	Primitive getPrimitive(size_t i);

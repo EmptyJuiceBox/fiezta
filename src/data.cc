@@ -69,7 +69,7 @@ GFXSetGroup FrameData::getAsGroup(size_t i, size_t binding) {
 	return GFXSetGroup{
 		.binding = binding,
 		.offset = i,
-		.numBindings = 0,
+		.numBindings = 1,
 		.group = group
 	};
 }

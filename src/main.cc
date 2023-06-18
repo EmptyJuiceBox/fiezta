@@ -324,11 +324,10 @@ int main() {
 
 		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
 			GFXSetGroup group = data->getAsGroup(f, 0);
-			GFXView view = {.binding = 0, .index = 0, .range = {.buf={0, sizeof(float)*16}}};
 			GFXSet *set = gfx_renderer_add_set(
 				renderer, tech, 0,
-				0, 1, 1, 0,
-				nullptr, &group, &view, nullptr);
+				0, 1, 0, 0,
+				nullptr, &group, nullptr, nullptr);
 
 			graph->assignSet(f, set);
 		}

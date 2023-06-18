@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string.h>
+#include "vec.h"
 
 template <typename T>
 struct mat4 {
@@ -35,6 +36,15 @@ struct mat4 {
 
 	T *operator[](size_t i) {
 		return &data[i * 4];
+	}
+
+	vec3<T> operator*(const vec3<T> &vec) const {
+		const mat4 &m = *this;
+
+		return vec3<T>(
+			vec[0] * m[0][0] + vec[1] * m[0][1] + vec[2] * m[0][2] + m[0][3],
+			vec[0] * m[1][0] + vec[1] * m[1][1] + vec[2] * m[1][2] + m[1][3],
+			vec[0] * m[2][0] + vec[1] * m[2][1] + vec[2] * m[2][2] + m[2][3]);
 	}
 
 	mat4 &operator=(const mat4 &mat) {

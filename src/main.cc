@@ -3,15 +3,17 @@
 #include "def.h"
 #include "graph.h"
 #include "mat.h"
+#include "vec.h"
 
 struct Input {
 	bool left;
 	bool right;
+	bool forward;
+	bool back;
 	bool up;
 	bool down;
 
-	double x[2];
-	double y[2];
+	vec2<double> mouse[2];
 };
 
 void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
@@ -42,10 +44,16 @@ void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
 		break;
 	case GFX_KEY_W:
 	case GFX_KEY_UP:
-		inp->up = true;
+		inp->forward = true;
 		break;
 	case GFX_KEY_S:
 	case GFX_KEY_DOWN:
+		inp->back = true;
+		break;
+	case GFX_KEY_SPACE:
+		inp->up = true;
+		break;
+	case GFX_KEY_LEFT_SHIFT:
 		inp->down = true;
 		break;
 	default:
@@ -66,10 +74,16 @@ void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
 		break;
 	case GFX_KEY_W:
 	case GFX_KEY_UP:
-		inp->up = false;
+		inp->forward = false;
 		break;
 	case GFX_KEY_S:
 	case GFX_KEY_DOWN:
+		inp->back = false;
+		break;
+	case GFX_KEY_SPACE:
+		inp->up = false;
+		break;
+	case GFX_KEY_LEFT_SHIFT:
 		inp->down = false;
 		break;
 	default:
@@ -79,10 +93,8 @@ void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
 
 void mouse_move(GFXWindow *window, double x, double y) {
 	Input *inp = (Input*)window->ptr;
-	inp->x[1] = inp->x[0];
-	inp->y[1] = inp->y[0];
-	inp->x[0] = x;
-	inp->y[0] = y;
+	inp->mouse[1] = inp->mouse[0];
+	inp->mouse[0] = vec2<double>(x, y);
 }
 
 GFXShader *load_shader(GFXShaderStage stage, const char *path) {
@@ -108,12 +120,13 @@ GFXShader *load_shader(GFXShaderStage stage, const char *path) {
 GraphNode *load_gltf_node(
 		GFXTechnique *tech, GFXPass *pass,
 		GraphNode *parent, GFXGltfNode *node) {
+	const auto matrix = mat4<float>(node->matrix).transpose(); // Column -> row major.
 	std::unique_ptr<GraphNode> parsed = {};
 
 	if (!node->mesh)
-		parsed = std::make_unique<GraphNode>(node->matrix);
+		parsed = std::make_unique<GraphNode>(matrix);
 	else {
-		auto mesh = std::make_unique<MeshNode>(node->matrix);
+		auto mesh = std::make_unique<MeshNode>(matrix);
 
 		for (size_t p = 0; p < node->mesh->numPrimitives; ++p) {
 			GFXGltfPrimitive *prim = &node->mesh->primitives[p];
@@ -174,8 +187,9 @@ std::unique_ptr<GraphNode> load_gltf(
 }
 
 struct Camera {
-	double x;
-	double z;
+	vec3<float> pos;
+	float pitch;
+	float yaw;
 };
 
 struct Context {
@@ -208,13 +222,31 @@ void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
 		0.0f, 0.0f,  A,    B,
 		0.0f, 0.0f, -1.0f, 0.0f);
 
-	const auto view = mat4<float>(
-		1.0f, 0.0f, 0.0f, -ctx->cam.x,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, -ctx->cam.z,
-		0.0f, 0.0f, 0.0f, 1.0f);
+	const float cosPitch = cosf(-ctx->cam.pitch);
+	const float sinPitch = sinf(-ctx->cam.pitch);
 
-	const mat4<float> viewProj = projection * view;
+	const auto camPitch = mat4<float>(
+		1.0f, 0.0f,      0.0f,     0.0f,
+		0.0f, cosPitch, -sinPitch, 0.0f,
+		0.0f, sinPitch,  cosPitch, 0.0f,
+		0.0f, 0.0f,      0.0f,     1.0f);
+
+	const float cosYaw = cosf(-ctx->cam.yaw);
+	const float sinYaw = sinf(-ctx->cam.yaw);
+
+	const auto camYaw = mat4<float>(
+		 cosYaw, 0.0f, sinYaw, 0.0f,
+		 0.0f,   1.0f, 0.0f,   0.0f,
+		-sinYaw, 0.0f, cosYaw, 0.0f,
+		 0.0f,   0.0f, 0.0f,   1.0f);
+
+	const auto camPos = mat4<float>(
+		1.0f, 0.0f, 0.0f, -ctx->cam.pos[0],
+		0.0f, 1.0f, 0.0f, -ctx->cam.pos[1],
+		0.0f, 0.0f, 1.0f, -ctx->cam.pos[2],
+		0.0f, 0.0f, 0.0f,  1.0f);
+
+	const mat4<float> viewProj = projection * camPitch * camYaw * camPos;
 
 	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj.data), viewProj.data);
 	ctx->graph->record(recorder, frame, nullptr);
@@ -224,17 +256,19 @@ int main() {
 	dassert(gfx_init());
 
 	GFXWindow *window = gfx_create_window(
-		GFX_WINDOW_RESIZABLE | GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
+		GFX_WINDOW_RESIZABLE | GFX_WINDOW_CAPTURE_MOUSE |
+		GFX_WINDOW_DOUBLE_BUFFER | GFX_WINDOW_FOCUS,
 		nullptr, nullptr, {600, 400, 0}, "fiezta");
 	dassert(window);
 
 	Input input = {
 		.left = false,
 		.right = false,
+		.forward = false,
+		.back = false,
 		.up = false,
 		.down = false,
-		.x = {0.0, 0.0},
-		.y = {0.0, 0.0}
+		.mouse = {vec2<double>(),vec2<double>()}
 	};
 
 	window->ptr = &input;
@@ -337,23 +371,63 @@ int main() {
 	Context ctx = {
 		.tech = tech,
 		.graph = graph.get(),
-		.cam = {0.0, 0.0}
+		.cam = {vec3<float>(0.0f, 0.0f, 2.0f), 0.0f, 0.0f}
 	};
+
+	gfx_poll_events(); // Init mouse pos.
 
 	while (!gfx_window_should_close(window)) {
 		GFXFrame *frame = gfx_renderer_acquire(renderer);
+		gfx_frame_start(frame);
+
+		// Update input.
+		input.mouse[1] = input.mouse[0];
 		gfx_poll_events();
 
 		// Move camera.
+		const float pi2 = 6.28318530718f;
+		const float pi4 = pi2 / 4.0f - 0.01f;
+
+		const vec2<double> mouseVel = input.mouse[0] - input.mouse[1];
+		ctx.cam.yaw += -(mouseVel[0] / 60);
+		ctx.cam.pitch = GFX_CLAMP(ctx.cam.pitch - (mouseVel[1] / 60), -pi4, pi4);
+
+		const float cosPitch = cosf(ctx.cam.pitch);
+		const float sinPitch = sinf(ctx.cam.pitch);
+
+		const auto camPitch = mat4<float>(
+			1.0f, 0.0f,      0.0f,     0.0f,
+			0.0f, cosPitch, -sinPitch, 0.0f,
+			0.0f, sinPitch,  cosPitch, 0.0f,
+			0.0f, 0.0f,      0.0f,     1.0f);
+
+		const float cosYaw = cosf(ctx.cam.yaw);
+		const float sinYaw = sinf(ctx.cam.yaw);
+
+		const auto camYaw = mat4<float>(
+			 cosYaw, 0.0f, sinYaw, 0.0f,
+			 0.0f,   1.0f, 0.0f,   0.0f,
+			-sinYaw, 0.0f, cosYaw, 0.0f,
+			 0.0f,   0.0f, 0.0f,   1.0f);
+
+		const vec3<float> forward =
+			camYaw * camPitch * vec3<float>(0.0f, 0.0f, -1.0f);
+		const vec3<float> right =
+			forward.cross(vec3<float>(0.0f, 1.0f, 0.0f));
+
 		const double moveSpeed = 0.01;
 		if (input.left)
-			ctx.cam.x -= moveSpeed;
+			ctx.cam.pos -= right * moveSpeed;
 		if (input.right)
-			ctx.cam.x += moveSpeed;
+			ctx.cam.pos += right * moveSpeed;
+		if (input.forward)
+			ctx.cam.pos += forward * moveSpeed;
+		if (input.back)
+			ctx.cam.pos -= forward * moveSpeed;
 		if (input.up)
-			ctx.cam.z -= moveSpeed;
+			ctx.cam.pos[1] += moveSpeed;
 		if (input.down)
-			ctx.cam.z += moveSpeed;
+			ctx.cam.pos[1] -= moveSpeed;
 
 		// Update data.
 		if (data) {
@@ -362,10 +436,10 @@ int main() {
 			data->next();
 		}
 
-		// Render frame.
-		gfx_frame_start(frame);
+		// Record frame.
 		gfx_pass_inject(pass, 1, ref(gfx_dep_wait(dep)));
 		gfx_recorder_render(recorder, pass, render, &ctx);
+
 		gfx_frame_submit(frame);
 	}
 

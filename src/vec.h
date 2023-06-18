@@ -79,8 +79,12 @@ struct vec2 {
 		return data[0] * vec[0] + data[1] * vec[1];
 	}
 
-	T magnitude() const {
+	T norm() const {
 		return sqrt(dot(*this));
+	}
+
+	vec2 normalize() const {
+		return *this * (T(1) / this->norm());
 	}
 };
 
@@ -174,8 +178,12 @@ struct vec3 {
 		return data[0] * vec[0] + data[1] * vec[1] + data[2] * vec[2];
 	}
 
-	T magnitude() const {
+	T norm() const {
 		return sqrt(dot(*this));
+	}
+
+	vec3 normalize() const {
+		return *this * (T(1) / this->norm());
 	}
 
 	vec3 cross(const vec3 &vec) const {

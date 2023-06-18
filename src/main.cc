@@ -413,7 +413,7 @@ int main() {
 		const vec3<float> forward =
 			camYaw * camPitch * vec3<float>(0.0f, 0.0f, -1.0f);
 		const vec3<float> right =
-			forward.cross(vec3<float>(0.0f, 1.0f, 0.0f));
+			forward.cross(vec3<float>(0.0f, 1.0f, 0.0f)).normalize();
 
 		const double moveSpeed = 0.01;
 		if (input.left)

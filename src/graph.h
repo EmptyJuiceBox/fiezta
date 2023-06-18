@@ -74,7 +74,7 @@ public:
 	MeshNode(const float *mat) : GraphNode(mat) {}
 	virtual ~MeshNode() = default;
 
-	void addPrimitive(Primitive prim);
+	size_t addPrimitive(Primitive prim);
 	Primitive getPrimitive(size_t i);
 	void erasePrimitive(size_t i);
 	size_t numPrimitives() { return primitives.size(); }

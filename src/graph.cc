@@ -67,10 +67,12 @@ void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {
 		child->record(recorder, frame, ptr);
 }
 
-void MeshNode::addPrimitive(MeshNode::Primitive prim) {
+size_t MeshNode::addPrimitive(MeshNode::Primitive prim) {
 	// Insert empty renderable, i.e. set `pass` to nullptr.
 	auto pair = std::make_pair(prim, Renderable{{.pass = nullptr}});
 	primitives.push_back(pair);
+
+	return primitives.size() - 1;
 }
 
 MeshNode::Primitive MeshNode::getPrimitive(size_t i) {

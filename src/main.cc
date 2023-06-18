@@ -130,8 +130,8 @@ GraphNode *load_gltf_node(
 
 		for (size_t p = 0; p < node->mesh->numPrimitives; ++p) {
 			GFXGltfPrimitive *prim = &node->mesh->primitives[p];
-			mesh->addPrimitive(MeshNode::Primitive{tech, prim->primitive});
-			mesh->setForward(0, pass, nullptr);
+			size_t i = mesh->addPrimitive(MeshNode::Primitive{tech, prim->primitive});
+			dassert(mesh->setForward(i, pass, nullptr));
 		}
 
 		parsed = std::move(mesh);

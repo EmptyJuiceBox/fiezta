@@ -20,21 +20,28 @@ FrameData::FrameData(
 	group = gfx_alloc_group(heap, flags, usage, count, bindings.get());
 	dassert(group);
 
-	// Map first buffer.
-	current = 0;
-	offset = 0;
-
-	raw = gfx_map(gfx_ref_group_buffer(group, current, 0));
+	raw = gfx_map(gfx_ref_group(group));
 	dassert(raw);
+
+	// Get alignment.
+	GFXDevice *device = gfx_heap_get_device(heap);
+	align = GFX_MAX(GFX_MAX(
+		device->limits.minTexelBufferAlign,
+		device->limits.minUniformBufferAlign),
+		device->limits.minStorageBufferAlign);
+
+	// Point to first block.
+	current = raw;
+	offset = 0;
 }
 
 FrameData::~FrameData() {
-	gfx_unmap(gfx_ref_group_buffer(group, current, 0));
+	gfx_unmap(gfx_ref_group(group));
 	gfx_free_group(group);
 }
 
 uint32_t FrameData::write(const void *data, size_t size) {
-	memcpy(((char*)raw) + offset, data, size);
+	memcpy(((char*)current) + offset, data, size);
 
 	uint32_t currOffset = offset;
 	offset += size;
@@ -43,18 +50,21 @@ uint32_t FrameData::write(const void *data, size_t size) {
 }
 
 void FrameData::next() {
-	GFXBufferRef prev = gfx_ref_group_buffer(group, current, 0);
+	const size_t size = this->size();
+	const size_t count = this->count();
 
-	// Update indices into the group buffer.
-	current = (current + 1) % count();
+	// Get aligned size.
+	const size_t alignedSize = GFX_ALIGN_UP(size, align);
+
+	// Get current block.
+	size_t currentCount = ((char*)current - (char*)raw) / alignedSize;
+
+	// Get new block.
+	currentCount = (currentCount + 1) % count;
+	size_t currentOffset = currentCount * alignedSize;
+
+	current = (void*)(((char*)raw) + currentOffset);
 	offset = 0;
-
-	GFXBufferRef next = gfx_ref_group_buffer(group, current, 0);
-
-	// Map next first then unmap previous.
-	raw = gfx_map(next);
-	dassert(raw);
-	gfx_unmap(prev);
 }
 
 GFXSetResource FrameData::getAsResource(size_t i, size_t binding, size_t index) {

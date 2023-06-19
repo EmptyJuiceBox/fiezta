@@ -23,7 +23,8 @@ public:
 
 private:
 	GFXGroup *group;
-	size_t current;
-	uint32_t offset;
 	void *raw;
+	void *current;
+	uint32_t align;
+	uint32_t offset;
 };

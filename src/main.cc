@@ -2,8 +2,6 @@
 #include "data.h"
 #include "def.h"
 #include "graph.h"
-#include "mat.h"
-#include "vec.h"
 
 struct Input {
 	bool left;
@@ -62,6 +60,22 @@ void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
 }
 
 void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
+	switch (key) {
+	case GFX_KEY_F11:
+		if (gfx_window_get_monitor(window) != nullptr) {
+			gfx_window_set_monitor(
+				window, nullptr, {600, 400, 0});
+		} else {
+			GFXMonitor* monitor = gfx_get_primary_monitor();
+			gfx_window_set_monitor(
+				window, monitor,
+				gfx_monitor_get_current_mode(monitor));
+		}
+		break;
+	default:
+		break;
+	}
+
 	Input *inp = (Input*)window->ptr;
 	switch (key) {
 	case GFX_KEY_A:

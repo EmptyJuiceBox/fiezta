@@ -1,7 +1,10 @@
 OUT = build
 
+getfiles = \
+	$(foreach d,$(wildcard $1/*),$(call getfiles,$d,$2) $(filter $2,$d))
+
 SRCS = \
-	$(wildcard src/*.cc)
+	$(call getfiles,src,%.cc)
 
 CXXFLAGS += \
 	-std=c++2a -Wall -Wextra -Wno-missing-field-initializers -Wpedantic \

@@ -5,7 +5,6 @@
 #include <vector>
 #include "data.h"
 #include "def.h"
-#include "mat.h"
 
 class GraphNode {
 public:

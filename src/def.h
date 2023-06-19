@@ -4,6 +4,9 @@
 #include <groufix/assets/gltf.h>
 #include <iostream>
 
+#include "math/mat.h"
+#include "math/vec.h"
+
 #define NUM_VIRTUAL_FRAMES 2
 
 #define dassert(expr) do { \

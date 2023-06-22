@@ -23,14 +23,17 @@ FrameData::FrameData(
 	raw = gfx_map(gfx_ref_group(group));
 	dassert(raw);
 
-	current = 0;
-	offset = 0;
-	ptr = ((char*)raw) + gfx_group_get_binding_offset(group, current, 0);
+	setOutput(0);
 }
 
 FrameData::~FrameData() {
 	gfx_unmap(gfx_ref_group(group));
 	gfx_free_group(group);
+}
+
+void FrameData::setOutput(size_t i) {
+	ptr = ((char*)raw) + gfx_group_get_binding_offset(group, i % count(), 0);
+	offset = 0;
 }
 
 uint32_t FrameData::write(const void *data, size_t size) {
@@ -42,24 +45,18 @@ uint32_t FrameData::write(const void *data, size_t size) {
 	return currOffset;
 }
 
-void FrameData::next() {
-	current = (current + 1) % count();
-	offset = 0;
-	ptr = ((char*)raw) + gfx_group_get_binding_offset(group, current, 0);
-}
-
 GFXSetResource FrameData::getAsResource(size_t i, size_t binding, size_t index) {
 	return GFXSetResource{
 		.binding = binding,
 		.index = index,
-		.ref = gfx_ref_group_buffer(group, i, 0)
+		.ref = gfx_ref_group_buffer(group, i % count(), 0)
 	};
 }
 
 GFXSetGroup FrameData::getAsGroup(size_t i, size_t binding) {
 	return GFXSetGroup{
 		.binding = binding,
-		.offset = i,
+		.offset = i % count(),
 		.numBindings = 1,
 		.group = group
 	};

@@ -15,8 +15,8 @@ public:
 	GFXMemoryFlags flags() { return group->flags; }
 	GFXBufferUsage usage() { return group->usage; }
 
+	void setOutput(size_t i); // Set index to start outputting to.
 	uint32_t write(const void *data, size_t size); // Returns offset of written data.
-	void next();
 
 	GFXSetResource getAsResource(size_t i, size_t binding, size_t index);
 	GFXSetGroup getAsGroup(size_t i, size_t binding);
@@ -24,8 +24,6 @@ public:
 private:
 	GFXGroup *group;
 	void *raw;
-
-	size_t current;
-	uint32_t offset;
 	void *ptr;
+	uint32_t offset;
 };

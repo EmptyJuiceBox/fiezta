@@ -445,9 +445,9 @@ int main() {
 
 		// Update data.
 		if (data) {
+			data->setOutput(gfx_frame_get_index(frame));
 			graph->update();
 			graph->write(data.get());
-			data->next();
 		}
 
 		// Record frame.

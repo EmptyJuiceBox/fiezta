@@ -132,7 +132,7 @@ GFXShader *load_shader(GFXShaderStage stage, const char *path) {
 }
 
 GraphNode *load_gltf_node(
-		GFXTechnique *tech, GFXPass *pass,
+		GFXTechnique *tech, GFXPass *pass, GFXSet **sets,
 		GraphNode *parent, GFXGltfNode *node) {
 	const auto matrix = mat4<float>(node->matrix).transpose(); // Column -> row major.
 	std::unique_ptr<GraphNode> parsed = {};
@@ -146,20 +146,23 @@ GraphNode *load_gltf_node(
 			GFXGltfPrimitive *prim = &node->mesh->primitives[p];
 			size_t i = mesh->addPrimitive(MeshNode::Primitive{tech, prim->primitive});
 			dassert(mesh->setForward(i, pass, nullptr));
+			dassert(mesh->assignSets(i, sets));
 		}
 
 		parsed = std::move(mesh);
 	}
 
 	for (size_t n = 0; n < node->numChildren; ++n)
-		load_gltf_node(tech, pass, parsed.get(), node->children[n]);
+		load_gltf_node(
+			tech, pass, sets,
+			parsed.get(), node->children[n]);
 
 	return parent->addChild(std::move(parsed));
 }
 
 std::unique_ptr<GraphNode> load_gltf(
 		GFXHeap *heap, GFXDependency *dep,
-		GFXTechnique *tech, GFXPass *pass,
+		GFXTechnique *tech, GFXPass *pass, GFXSet **sets,
 		const char *path) {
 	GFXFile file;
 	dassert(gfx_file_init(&file, path, "rb"));
@@ -192,7 +195,9 @@ std::unique_ptr<GraphNode> load_gltf(
 
 	if (result.scene) {
 		for (size_t n = 0; n < result.scene->numNodes; ++n)
-			load_gltf_node(tech, pass, root.get(), result.scene->nodes[n]);
+			load_gltf_node(
+				tech, pass, sets,
+				root.get(), result.scene->nodes[n]);
 	}
 
 	gfx_release_gltf(&result);
@@ -356,9 +361,18 @@ int main() {
 	dassert(gfx_tech_dynamic(tech, 0, 0));
 	dassert(gfx_tech_lock(tech));
 
+	GFXSet *sets[NUM_VIRTUAL_FRAMES];
+	for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
+		sets[f] = gfx_renderer_add_set(
+			renderer, tech, 0,
+			0, 0, 0, 0,
+			nullptr, nullptr, nullptr, nullptr);
+		dassert(sets[f]);
+	}
+
 	// Load glTF & setup data.
 	std::unique_ptr<GraphNode> graph =
-		load_gltf(heap, dep, tech, pass, "assets/5t6.gltf");
+		load_gltf(heap, dep, tech, pass, sets, "assets/5t6.gltf");
 
 	dassert(gfx_heap_flush(heap));
 
@@ -372,12 +386,7 @@ int main() {
 
 		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {
 			GFXSetGroup group = data->getAsGroup(f, 0);
-			GFXSet *set = gfx_renderer_add_set(
-				renderer, tech, 0,
-				0, 1, 0, 0,
-				nullptr, &group, nullptr, nullptr);
-
-			graph->assignSet(f, set);
+			dassert(gfx_set_groups(sets[f], 1, &group));
 		}
 	}
 

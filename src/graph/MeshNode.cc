@@ -1,3 +1,4 @@
+#include <string.h>
 #include "graph.h"
 
 size_t MeshNode::addPrimitive(MeshNode::Primitive prim) {
@@ -37,12 +38,17 @@ bool MeshNode::setForward(size_t i, GFXPass *pass, const GFXRenderState *state) 
 	return false;
 }
 
-void MeshNode::_write(FrameData *out) {
-	offset = out->write(finalTransform.data, sizeof(finalTransform.data));
+bool MeshNode::assignSets(size_t i, GFXSet **sets) {
+	if (i < primitives.size()) {
+		memcpy(primitives[i].second.sets, sets, sizeof(primitives[i].second.sets));
+		return true;
+	}
+
+	return false;
 }
 
-void MeshNode::_assignSet(unsigned int frame, GFXSet *set) {
-	sets[frame] = set;
+void MeshNode::_write(FrameData *out) {
+	offset = out->write(finalTransform.data, sizeof(finalTransform.data));
 }
 
 void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {
@@ -51,9 +57,10 @@ void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {
 
 	for (auto &prim : primitives)
 		if (prim.second.forward.pass == pass) {
-			if (sets[frame])
-				gfx_cmd_bind(recorder, prim.first.tech, 0, 1, 1, &sets[frame], &offset);
-
-			gfx_cmd_draw_prim(recorder, &prim.second.forward, 1, 0);
+			gfx_cmd_bind(
+				recorder, prim.first.tech,
+				0, 1, 1, &prim.second.sets[frame], &offset);
+			gfx_cmd_draw_prim(
+				recorder, &prim.second.forward, 1, 0);
 		}
 }

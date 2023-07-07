@@ -53,13 +53,6 @@ size_t GraphNode::writes() {
 	return (_writes() ? 1 : 0) + childWrites;
 }
 
-void GraphNode::assignSet(unsigned int frame, GFXSet *set) {
-	_assignSet(frame, set);
-
-	for (auto &child : children)
-		child->assignSet(frame, set);
-}
-
 void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {
 	_record(recorder, frame, ptr);
 

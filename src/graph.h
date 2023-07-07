@@ -30,9 +30,6 @@ public:
 	// Number of writes this graph makes.
 	size_t writes();
 
-	// Assign a (dynamically buffered) set for each frame.
-	void assignSet(unsigned int frame, GFXSet*);
-
 	// Record the entire sub-graph.
 	void record(GFXRecorder*, unsigned int frame, void *ptr);
 
@@ -42,9 +39,6 @@ protected:
 
 	// should return true if _write should be called.
 	virtual bool _writes() { return false; }
-
-	// args{frame-index, set}
-	virtual void _assignSet(unsigned int, GFXSet*) {};
 
 	// args{recorder, frame-index, user-pointer}
 	virtual void _record(GFXRecorder*, unsigned int, void*) {};
@@ -66,6 +60,7 @@ public:
 
 	struct Renderable {
 		GFXRenderable forward;
+		GFXSet *sets[NUM_VIRTUAL_FRAMES];
 	};
 
 	MeshNode() {}
@@ -78,16 +73,15 @@ public:
 	void erasePrimitive(size_t i);
 	size_t numPrimitives() { return primitives.size(); }
 	bool setForward(size_t i, GFXPass *pass, const GFXRenderState *state);
+	bool assignSets(size_t i, GFXSet **sets);
 
 protected:
 	virtual void _write(FrameData*);
 	virtual bool _writes() { return true; }
-	virtual void _assignSet(unsigned int, GFXSet*);
 	virtual void _record(GFXRecorder*, unsigned int, void*);
 
 private:
 	std::vector<std::pair<Primitive, Renderable>> primitives;
-	GFXSet *sets[NUM_VIRTUAL_FRAMES];
 
 	// Set during _write().
 	uint32_t offset;

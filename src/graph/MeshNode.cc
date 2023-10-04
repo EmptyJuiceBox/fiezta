@@ -48,7 +48,8 @@ bool MeshNode::assignSets(size_t i, GFXSet **sets) {
 }
 
 void MeshNode::_write(FrameData *out) {
-	offset = out->write(finalTransform.data, sizeof(finalTransform.data));
+	out->write(finalTransform.data, 0, sizeof(finalTransform.data));
+	offset = out->next();
 }
 
 void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {

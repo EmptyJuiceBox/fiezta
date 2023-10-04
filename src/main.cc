@@ -381,7 +381,7 @@ int main() {
 
 	if (dataCount > 0) {
 		data = std::make_unique<FrameData>(
-			heap, NUM_VIRTUAL_FRAMES, sizeof(float) * 16 * dataCount,
+			heap, NUM_VIRTUAL_FRAMES, dataCount, sizeof(float) * 16,
 			GFX_MEMORY_NONE, GFX_BUFFER_UNIFORM);
 
 		for (unsigned int f = 0; f < NUM_VIRTUAL_FRAMES; ++f) {

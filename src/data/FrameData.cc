@@ -6,18 +6,13 @@ FrameData::FrameData(
 		GFXHeap *heap, size_t numFrames,
 		uint32_t numElements, uint32_t elementSize,
 		GFXMemoryFlags flags, GFXBufferUsage usage) {
-	GFXDevice* device = gfx_heap_get_device(heap);
-	const uint32_t align = GFX_MAX(
-		device->limits.minUniformBufferAlign,
-		device->limits.minStorageBufferAlign);
-
 	auto bindings = std::make_unique<GFXBinding[]>(numFrames);
 	for (size_t b = 0; b < numFrames; ++b) {
 		bindings[b] = GFXBinding{
 			.type = GFX_BINDING_BUFFER,
 			.count = 1,
 			.numElements = numElements,
-			.elementSize = GFX_ALIGN_UP(elementSize, align),
+			.elementSize = elementSize,
 			.buffers = nullptr
 		};
 	}
@@ -48,7 +43,7 @@ void FrameData::write(const void *data, uint32_t offset, size_t size) {
 
 uint32_t FrameData::next() {
 	uint32_t currOffset = offset;
-	offset += elementSize();
+	offset += gfx_group_get_binding_stride(group, 0);
 
 	return currOffset;
 }

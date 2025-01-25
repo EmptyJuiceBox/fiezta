@@ -52,8 +52,10 @@ void MeshNode::_write(FrameData *out) {
 	offset = out->next();
 }
 
-void MeshNode::_record(GFXRecorder *recorder, unsigned int frame, void*) {
+void MeshNode::_record(GFXRecorder *recorder, void*) {
+	unsigned int frame = gfx_recorder_get_frame_index(recorder);
 	GFXPass *pass = gfx_recorder_get_pass(recorder);
+
 	if (!pass) return;
 
 	for (auto &prim : primitives)

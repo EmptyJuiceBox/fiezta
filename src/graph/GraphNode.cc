@@ -53,9 +53,9 @@ size_t GraphNode::writes() {
 	return (_writes() ? 1 : 0) + childWrites;
 }
 
-void GraphNode::record(GFXRecorder *recorder, unsigned int frame, void *ptr) {
-	_record(recorder, frame, ptr);
+void GraphNode::record(GFXRecorder *recorder, void *ptr) {
+	_record(recorder, ptr);
 
 	for (auto &child : children)
-		child->record(recorder, frame, ptr);
+		child->record(recorder, ptr);
 }

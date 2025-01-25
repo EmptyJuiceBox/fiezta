@@ -31,7 +31,7 @@ public:
 	size_t writes();
 
 	// Record the entire sub-graph.
-	void record(GFXRecorder*, unsigned int frame, void *ptr);
+	void record(GFXRecorder*, void *ptr);
 
 protected:
 	// args{frame-data-output}
@@ -40,8 +40,8 @@ protected:
 	// should return true if _write should be called.
 	virtual bool _writes() { return false; }
 
-	// args{recorder, frame-index, user-pointer}
-	virtual void _record(GFXRecorder*, unsigned int, void*) {};
+	// args{recorder, user-pointer}
+	virtual void _record(GFXRecorder*, void*) {};
 
 	// Set during update().
 	mat4<float> finalTransform;
@@ -78,7 +78,7 @@ public:
 protected:
 	virtual void _write(FrameData*);
 	virtual bool _writes() { return true; }
-	virtual void _record(GFXRecorder*, unsigned int, void*);
+	virtual void _record(GFXRecorder*, void*);
 
 private:
 	std::vector<std::pair<Primitive, Renderable>> primitives;

@@ -14,7 +14,7 @@ struct Input {
 	vec2<double> mouse[2];
 };
 
-void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
+bool key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod, void*) {
 	switch (key) {
 	case GFX_KEY_C:
 	case GFX_KEY_D:
@@ -57,9 +57,11 @@ void key_press(GFXWindow *window, GFXKey key, int, GFXModifier mod) {
 	default:
 		break;
 	}
+
+	return 0;
 }
 
-void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
+bool key_release(GFXWindow *window, GFXKey key, int, GFXModifier, void*) {
 	switch (key) {
 	case GFX_KEY_F11:
 		if (gfx_window_get_monitor(window) != nullptr) {
@@ -103,12 +105,16 @@ void key_release(GFXWindow *window, GFXKey key, int, GFXModifier) {
 	default:
 		break;
 	}
+
+	return 0;
 }
 
-void mouse_move(GFXWindow *window, double x, double y) {
+bool mouse_move(GFXWindow *window, double x, double y, void*) {
 	Input *inp = (Input*)window->ptr;
 	inp->mouse[1] = inp->mouse[0];
 	inp->mouse[0] = vec2<double>(x, y);
+
+	return 0;
 }
 
 GFXShader *load_shader(GFXShaderStage stage, const char *path) {
@@ -217,7 +223,7 @@ struct Context {
 	Camera cam;
 };
 
-void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
+void render(GFXRecorder *recorder, void *ptr) {
 	Context *ctx = (Context*)ptr;
 
 	uint32_t width, height, layers;
@@ -268,7 +274,7 @@ void render(GFXRecorder *recorder, unsigned int frame, void *ptr) {
 	const mat4<float> viewProj = projection * camPitch * camYaw * camPos;
 
 	gfx_cmd_push(recorder, ctx->tech, 0, sizeof(viewProj.data), viewProj.data);
-	ctx->graph->record(recorder, frame, nullptr);
+	ctx->graph->record(recorder, nullptr);
 }
 
 int main() {
@@ -324,7 +330,7 @@ int main() {
 			.zScale = 1.0f
 		}));
 
-	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, nullptr);
+	GFXPass *pass = gfx_renderer_add_pass(renderer, GFX_PASS_RENDER, 0, 0, nullptr);
 	dassert(pass);
 
 	GFXDepthState depth = {
